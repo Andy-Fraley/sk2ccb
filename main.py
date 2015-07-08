@@ -12,7 +12,14 @@ def usage():
               'family\n\n'\
               '        <contribution_file> is a CSV file extract from Servant Keeper containing one line per '\
               'contribution\n\n'\
-              '        <output_file> is an Excel loading file for CCB'
+              '        <output_file> is the transformed output Excel loading file for CCB\n\n'\
+              '    NOTE: There must be at least one each individual_file, family_file, and contribution_file as \n'\
+              '    input files.  However, contents for individuals, familys, and contributions can be split across\n'\
+              '    multiple files each like:\n\n'\
+              '        ./main.py --individual_file indiv1.csv --individual_file indiv2.csv --family_file fam.csv\n'\
+              '            --contribution_file contrib.csv\n\n'\
+              '    Multiple files per object type will work so long as (1) each row has the ID column for the\n'\
+              '    object type and (2) there are no duplicate columns for any given object ID.'
 
 def main(argv):
     individual_file = ''
