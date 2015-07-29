@@ -1,7 +1,6 @@
-#!/usr/bin/python
+#!/Library/Frameworks/Python.framework/Versions/2.7/bin/python
 
-from rowset import RowSet
-import sys, getopt, os.path, csv, argparse
+import sys, getopt, os.path, csv, argparse, petl
 
 def main(argv):
     parser = argparse.ArgumentParser()
@@ -15,9 +14,28 @@ def main(argv):
     parser.add_argument("--output-filename", required=True, help="'Output' filename (output XLS file)")
     args = parser.parse_args()
 
-    individual_listlist = csvs2listlist(args.individual_filename[0], args.individual_id_fieldname)
+    individual_table = join_tables(args.individual_filename[0], args.individual_id_fieldname)
+    print individual_table
 
-    print str(args)
+def join_tables(filename_list, id_fieldname):
+    curr_table = None
+    for filename in filename_list:
+        if not os.path.isfile(filename):
+            print "Error: cannot open file '" + filename + "'"
+        else:
+            next_table = petl.fromcsv(filename)
+            header_row = petl.fieldnames(next_table)
+            if id_fieldname is not None and id_fieldname not in header_row:
+                print "Error: " + str(header_row) + " header row does not contain required ID field named '" + \
+                    id_fieldname + "'"
+            else:
+                if curr_table is not None:
+                    print curr_table
+                    print next_table
+                    curr_table = petl.outerjoin(curr_table, next_table, key=id_fieldname)
+                else:
+                    curr_table = next_table
+    return curr_table
 
 def csvs2dictlist(filename_array, id_fieldname):
     dictlist = []
