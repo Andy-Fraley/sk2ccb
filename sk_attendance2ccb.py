@@ -1,5 +1,19 @@
 #!/usr/bin/env python
 
+# Todos:
+# - Cross check totals at bottom with sum(weekX) and sum(total) columns (to make sure no rows/data missed)
+# - Allow for input file directory to be specified (in place of input filenames) and process all .txt files in that
+#   directory
+# - Allow name2member_id mapping file to be specified and emit member_id along with name in output CSV
+# - Calculate weekX dates (from month and year)
+# x Allow for long names with ^M followed by rest of line (a form of line folding)
+# x Allow for first/last names to have '-' character in them
+# x Allow first names to have '(' and ')' characters in them, like "Margaret (Meg)"
+# x Allow first names in all caps (like "Houser, MC")
+# x Allow first names with '.' (like "Houser, Kermit J.")
+# x Allow spaces in last name (like "Etap Omia, Charlize")
+# x Pull off service time
+
 import sys, getopt, os.path, csv, argparse, petl, re, calendar
 
 def main(argv):
@@ -26,13 +40,6 @@ def join_tables(filename_list):
 
 def attendance_file2table(filename):
 
-    prior_line = None
-
-    # Length 75 = normal full-length line including full_name, phone, week1-6, total
-    # Length 41 = line truncated after numeric 'xxx-xxx-xxxx' phone (number)
-    # Length 37 = line truncated after 'Unlisted' phone (number)
-    # Length 12-28 = line truncated after full_name (pattern = '^ {6}[A-Za-z]+, [A-Za-z' ]+\r?$')
-
     # Field locations within string
     fields = {}
     fields['full_name'] = [6,25]
@@ -45,67 +52,105 @@ def attendance_file2table(filename):
     fields['week6'] = [66,66]
     fields['total'] = [72,72]
 
-    regex_partial_line_thru_phone_numeric = re.compile('^ {6}[A-Za-z\']+, [A-Za-z\' ]+[a-z] +[0-9]{3}-[0-9]{3}-[0-9]{4}\r?$')
-    regex_partial_line_thru_phone_unlisted = re.compile('^ {6}[A-Za-z\']+, [A-Za-z\' ]+[a-z] +Unlisted\r?$')
-    regex_partial_line_thru_full_name = re.compile('^ {6}[A-Za-z\']+, [A-Za-z\' ]+[a-z]\r?$')
-    regex_complete_line = re.compile('^ {6}[A-Za-z\']+, [A-Za-z\' ]+[a-z] +([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)? +(1 +)+[1-6]\r?$')
-    regex_month_year = re.compile('For the month of ([A-Z][a-z]+), ([0-9]{4})')
-    regex_attendance_only = re.compile('^ +(1).*([1-6])\r?$')
-#    regex_name_phone_newline = re.compile(' +([A-Za-z\']+), ([A-Za-z]+( [A-Za-z]+)?) +( {12}|[0-9]{3}-[0-9]{3}-[0-9]{4})$')
-    regex_name_phone_newline = re.compile('^ +([A-Za-z\']+), ([A-Za-z]+( [A-Za-z]+)?)( +(Unlisted|[0-9]{3}-[0-9]{3}-[0-9]{4}))?\r?$')
+    # Service event IDs
+    event_ids = {}
+    event_ids['8'] = 4
+    event_ids['9'] = 1
+    event_ids['10'] = 2
+    event_ids['11:15'] = 3
+
+    prior_line = None
+    matched_month_year = None
+    matched_service_time = None
+    month = None
+    year = None
+    service_time = None
+    alt_full_name = None
+
     for line in open(filename):
 
-        # If line only contains attendance info (no full name, phone/Unlisted, etc.), then blend it with prior line
-        matched_attendance_only_line = re.search('^ +((1 +)+[1-6])\r?$', line)
-        if matched_attendance_only_line and prior_line:
-            print
-            print '*** FOLDED LINE'
-            print len(prior_line)
-            print len(line)
-            print '   *** PRIOR LINE'
-            print prior_line
-            print '   *** LINE BEFORE PROCESSING'
-            print line
-            line = ' ' * 6 + prior_line.strip() + ' ' * (matched_attendance_only_line.start(1) - len(prior_line) + 2) + matched_attendance_only_line.group(1)
-            print '   *** FOLDED LINE AFTER PROCESSING'
-            print line
-            print
+#        print line
+#        print
 
-        attendance_only = regex_attendance_only.search(line)
-        if attendance_only != None:
-            print line
+        # Don't try finding data lines until we picked up line indicating Month/Year towards beginning of file
+        if not matched_month_year:
+            matched_month_year = re.search('For the month of ([A-Z][a-z]+), ([0-9]{4})', line)
+            if matched_month_year:
+                month = string2monthnum(matched_month_year.group(1))
+                year = string2yearnum(matched_month_year.group(2))
+                if month and year:
+                    print '*** year = ' + str(year) + ', month = ' + str(month)
+                else:
+                    print >> sys.stderr, 'Invalid month or year found'
+                    print >> sys.stderr, line
+                    sys.exit(1)
 
-        print 'length: ' + str(len(line))
+        elif not matched_service_time:
+            matched_service_time = re.search('Worship Service - Sunday ([^ ]*)', line)
+            if matched_service_time:
+                service_time = matched_service_time.group(1)
+                if service_time in event_ids:
+                    event_id = event_ids[service_time]
+                    print '*** service_time = ' + service_time + ' a.m., event_id = ' + str(event_id)
+                else:
+                    print '*** ERROR! Unrecognized service_time: "' + service_time + '"'
 
-        match_partial_line_thru_phone_numeric = regex_partial_line_thru_phone_numeric.search(line)
-        match_partial_line_thru_phone_unlisted = regex_partial_line_thru_phone_unlisted.search(line)
-        match_partial_line_thru_full_name = regex_partial_line_thru_full_name.search(line)
-        match_complete_line = regex_complete_line.search(line)
-        if match_partial_line_thru_phone_numeric != None:
-            print '*** MATCHED!  PARTIAL LINE THRU PHONE NUMERIC'
-        elif match_partial_line_thru_phone_unlisted != None:
-            print '*** MATCHED!  PARTIAL LINE THRU PHONE UNLISTED'
-        elif match_partial_line_thru_full_name != None:
-            print '*** MATCHED!  PARTIAL LINE THRU FULL NAME'
-        elif match_complete_line != None:
-            print '*** MATCHED!  COMPLETE LINE'
+        # Match and process lines containing data
+        else:
+            found_complete_line = False
 
-        for field in fields:
-            print field, '"' + line[fields[field][0]:fields[field][1]+1].strip() + '"'
-        month_year = regex_month_year.search(line)
-        if month_year != None:
-            month = string2monthnum(month_year.group(1))
-            year = string2yearnum(month_year.group(2))
-            if month and year:
-                print year, month
-        name_phone_newline = regex_name_phone_newline.search(line)
-        if name_phone_newline != None:
-            print line
-        attendance_only = regex_attendance_only.search(line)
-        if attendance_only != None:
-            print line
+            # One form of data line contains only attendance data for weeks 1-6 and total.  If we find one of
+            # these, take prior line (which contains name and maybe phone) and fold them together to create a
+            # whole data line (prior_line is stashed on earlier pass just in case this line folding is needed)
+            matched_attendance_only_line = re.search('^ +((1 +)+[1-6])\r?$', line)
+            if matched_attendance_only_line and prior_line:
+                line = ' ' * 6 + prior_line.strip() + ' ' * (matched_attendance_only_line.start(1) - \
+                    len(prior_line) + 2) + matched_attendance_only_line.group(1)
+                found_complete_line = True
 
-        prior_line = line
+            else:
+                # Another form of data line is a complete line with full_name, phone (optional), followed
+                # by attendance data for weeks 1-6 and total
+                matched_complete_line = re.search('^ {6}([A-Za-z\-\' ]+[A-Za-z], ' \
+                    + '[A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)\r? +' '(([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)? +' \
+                    + '(1 +)+[1-6])\r?$', line)
+                if matched_complete_line:
+
+                    for match in matched_complete_line.groups():
+                        print '*** Match: ' + str(match)
+
+                    found_complete_line = True
+
+                    # In one form of complete line, if the name is too big to fit into the full_name field,
+                    # it is followed by carriage return (not newline) and the next line contains the phone (if
+                    # present) and attandance data.  If this pattern occurs, we have to stash the (too long)
+                    # full name (it's set aside in alt_full_name), reformat the line without full_name (since it
+                    # doesn't fit), and then pull all fields except full_name normally and use alt_full_name
+                    # instead of truncated version of full_name that would be pulled from fixed-length full_name
+                    # field
+                    if len(matched_complete_line.group(1)) > 19:
+                        alt_full_name = matched_complete_line.group(1)
+                        line = ' ' * (fields['full_name'][1] + 2) + matched_complete_line.group(3)
+                        print
+                        print 'Alt name line:'
+                        print line
+                        print
+                    else:
+                        alt_full_name = None
+
+            if found_complete_line:
+                # Pull lines from fixed length fields in 'line'
+                for field in fields:
+                    # Use alt_full_name instead of fixed-length full_name field if it was set aside above
+                    if field == 'full_name' and alt_full_name is not None:
+                        print field, '"' + alt_full_name + '"'
+                        alt_full_name = None
+                    else:
+                        print field, '"' + line[fields[field][0]:fields[field][1]+1].strip() + '"'
+                print
+
+            # Buffer the current line for line folding if needed (see 'line folding' above)
+            prior_line = line
 
     return None
 
