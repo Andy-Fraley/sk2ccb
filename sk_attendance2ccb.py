@@ -32,25 +32,20 @@ def join_tables(filename_list):
             print "Error: cannot open file '" + filename + "'"
         else:
             next_table = attendance_file2table(filename)
-            if curr_table is not None:
-                curr_table = table_extend(curr_table, next_table)
-            else:
-                curr_table = next_table
-    return curr_table
+#            for row in next_table:
+#                print row
+
+#            if curr_table is not None:
+#                curr_table = table_extend(curr_table, next_table)
+#            else:
+#                curr_table = next_table
+#    return curr_table
+
+    return None
 
 def attendance_file2table(filename):
 
-    # Field locations within string
-    fields = {}
-    fields['full_name'] = [6,25]
-    fields['phone'] = [27,38]
-    fields['week1'] = [40,40]
-    fields['week2'] = [46,46]
-    fields['week3'] = [51,51]
-    fields['week4'] = [55,55]
-    fields['week5'] = [60,60]
-    fields['week6'] = [66,66]
-    fields['total'] = [72,72]
+    attendance_dicts = []
 
     attendance_row_fields = {
         'full_name': { 'start': 6, 'end': 25, 'type': 'string' },
@@ -81,83 +76,49 @@ def attendance_file2table(filename):
     event_ids['10'] = 2
     event_ids['11:15'] = 3
 
+    # Starting state...found nothing
     prior_line = None
     matched_month_year = None
     matched_service_time = None
     month = None
     year = None
     service_time = None
-    alt_full_name = None
-
-    attendance_line_sums = {}
-    found_names = []
 
     for line in open(filename):
 
-#        print line
-#        print
-
-        # Don't try finding data lines until we picked up line indicating Month/Year towards beginning of file
+        # First pick off line at front of file indicating month and year that this attendance file is for...
         if not matched_month_year:
             matched_month_year = re.search('For the month of ([A-Z][a-z]+), ([0-9]{4})', line)
             if matched_month_year:
                 month = string2monthnum(matched_month_year.group(1))
                 year = string2yearnum(matched_month_year.group(2))
-                if month and year:
-                    print '*** year = ' + str(year) + ', month = ' + str(month)
-                else:
+                if not(month and year):
                     print >> sys.stderr, 'Invalid month or year found'
                     print >> sys.stderr, line
                     sys.exit(1)
 
+        # Second pick off line at front of file indicating worship service time that this attendance file is for...
         elif not matched_service_time:
             matched_service_time = re.search('Worship Service - Sunday ([^ ]*)', line)
             if matched_service_time:
                 service_time = matched_service_time.group(1)
                 if service_time in event_ids:
                     event_id = event_ids[service_time]
-                    print '*** service_time = ' + service_time + ' a.m., event_id = ' + str(event_id)
                 else:
                     print >> sys.stderr, '*** ERROR! Unrecognized service_time: "' + service_time + '"'
                     sys.exit(1)
 
-        # Match and process lines containing data
+        # ...then match attendance (row per person with weeks they attended) and total (summary at bottom) rows
         else:
 
-#                  Total:                    133  134 145  109         521
-#                  Total:               85   111   99 129  142         566
-#                  Total:                    118  119 140  104   111   592
-            total_offsets = {}
-            total_offsets['week1'] = 38
-            total_offsets['week2'] = 44
-            total_offsets['week3'] = 49
-            total_offsets['week4'] = 53
-            total_offsets['week5'] = 58
-            total_offsets['week6'] = 64
-            total_offsets['total'] = 70
-            total_line_values = {}
+            # Once we found row with totals...we're done, that's last line in attendance file we need to parse
             matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
             if matched_total_line:
+                total_row_dict = row2dict(line, total_row_fields, None)
+                break
 
-                row_dict = row2dict(line, total_row_fields, None)
-                print row_dict
-
-                for total_offset_name in total_offsets:
-                    offset = total_offsets[total_offset_name]
-                    total_str = line[offset:offset+3].strip()
-                    if len(total_str) > 0:
-                        total = int(total_str)
-                    else:
-                        total = 0
-                    total_line_values[total_offset_name] = total
-                print '*** Total line:'
-                print line
-                print total_line_values
-                print attendance_line_sums
-                for found_name in found_names:
-                    print found_name
-                print
-
+            # Because of weird line wraps in attendance files, we may need to fold a line with a prior line
+            # (prior_line), and need to track if we've match a complete line or just a fragment or non data line
             found_complete_line = False
 
             # One form of data line contains only attendance data for weeks 1-6 and total.  If we find one of
@@ -176,10 +137,6 @@ def attendance_file2table(filename):
                     + '[A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)\r? +' '(([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)? +' \
                     + '(1 +)+[1-6])\r?$', line)
                 if matched_complete_line:
-
-                    for match in matched_complete_line.groups():
-                        print '*** Match: ' + str(match)
-
                     found_complete_line = True
 
                     # In one form of complete line, if the name is too big to fit into the full_name field,
@@ -191,11 +148,7 @@ def attendance_file2table(filename):
                     # field
                     if len(matched_complete_line.group(1)) > 19:
                         alt_full_name = matched_complete_line.group(1)
-                        line = ' ' * (fields['full_name'][1] + 2) + matched_complete_line.group(3)
-                        print
-                        print 'Alt name line:'
-                        print line
-                        print
+                        line = ' ' * (attendance_row_fields['full_name']['end'] + 2) + matched_complete_line.group(3)
                     else:
                         alt_full_name = None
 
@@ -206,39 +159,19 @@ def attendance_file2table(filename):
                     alt_fields = { 'full_name': alt_full_name }
                 else:
                     alt_fields = None
+                alt_full_name = None
                 row_dict = row2dict(line, attendance_row_fields, alt_fields)
-                print row_dict
-
-                # Pull lines from fixed length fields in 'line'
-                for field in fields:
-
-                    # Use alt_full_name instead of fixed-length full_name field if it was set aside above
-                    if field == 'full_name' and alt_full_name is not None:
-                        print field, '"' + alt_full_name + '"'
-                        found_names.append(alt_full_name)
-                        alt_full_name = None
-                    else:
-                        start = fields[field][0]
-                        end = fields[field][1]+1
-                        field_str = line[start:end].strip()
-                        if field[:4] == 'week' or field == 'total':
-                            if len(field_str) > 0:
-                                field_value = int(field_str)
-                            else:
-                                field_value = 0
-                            if field in attendance_line_sums:
-                                attendance_line_sums[field] += field_value
-                            else:
-                                attendance_line_sums[field] = field_value
-                        elif field == 'full_name':
-                            found_names.append(field_str)
-                        print field, '"' + field_str + '"'
-                print
+                if row_dict['total'] != ( row_dict['week1'] + row_dict['week2'] + row_dict['week3'] +\
+                                          row_dict['week4'] + row_dict['week5'] + row_dict['week6']):
+                    print >> sys.stderr, '*** Bad row total:'
+                    print >> sys.stderr, row_dict
+                    sys.exit(1)
+                attendance_dicts.append(row_dict)
 
             # Buffer the current line for line folding if needed (see 'line folding' above)
             prior_line = line
 
-    return None
+    return petl.fromdicts(attendance_dicts)
 
 def string2monthnum(str):
     try:
