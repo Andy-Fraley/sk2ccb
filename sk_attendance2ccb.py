@@ -52,6 +52,28 @@ def attendance_file2table(filename):
     fields['week6'] = [66,66]
     fields['total'] = [72,72]
 
+    attendance_row_fields = {
+        'full_name': { 'start': 6, 'end': 25, 'type': 'string' },
+        'phone': { 'start': 27, 'end': 38, 'type': 'string' },
+        'week1': { 'start': 40, 'end': 40, 'type': 'number' },
+        'week2': { 'start': 46, 'end': 46, 'type': 'number' },
+        'week3': { 'start': 51, 'end': 51, 'type': 'number' },
+        'week4': { 'start': 55, 'end': 55, 'type': 'number' },
+        'week5': { 'start': 60, 'end': 60, 'type': 'number' },
+        'week6': { 'start': 66, 'end': 66, 'type': 'number' },
+        'total': { 'start': 72, 'end': 72, 'type': 'number' }
+    }
+
+    total_row_fields = {
+        'week1': { 'start': 38, 'end': 40, 'type': 'number' },
+        'week2': { 'start': 44, 'end': 46, 'type': 'number' },
+        'week3': { 'start': 49, 'end': 51, 'type': 'number' },
+        'week4': { 'start': 53, 'end': 55, 'type': 'number' },
+        'week5': { 'start': 58, 'end': 60, 'type': 'number' },
+        'week6': { 'start': 64, 'end': 66, 'type': 'number' },
+        'total': { 'start': 70, 'end': 72, 'type': 'number' }
+    }
+
     # Service event IDs
     event_ids = {}
     event_ids['8'] = 4
@@ -96,7 +118,8 @@ def attendance_file2table(filename):
                     event_id = event_ids[service_time]
                     print '*** service_time = ' + service_time + ' a.m., event_id = ' + str(event_id)
                 else:
-                    print '*** ERROR! Unrecognized service_time: "' + service_time + '"'
+                    print >> sys.stderr, '*** ERROR! Unrecognized service_time: "' + service_time + '"'
+                    sys.exit(1)
 
         # Match and process lines containing data
         else:
@@ -115,6 +138,10 @@ def attendance_file2table(filename):
             total_line_values = {}
             matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
             if matched_total_line:
+
+                row_dict = row2dict(line, total_row_fields, None)
+                print row_dict
+
                 for total_offset_name in total_offsets:
                     offset = total_offsets[total_offset_name]
                     total_str = line[offset:offset+3].strip()
@@ -173,6 +200,15 @@ def attendance_file2table(filename):
                         alt_full_name = None
 
             if found_complete_line:
+
+                # Convert line to row dictionary
+                if alt_full_name is not None:
+                    alt_fields = { 'full_name': alt_full_name }
+                else:
+                    alt_fields = None
+                row_dict = row2dict(line, attendance_row_fields, alt_fields)
+                print row_dict
+
                 # Pull lines from fixed length fields in 'line'
                 for field in fields:
 
@@ -215,6 +251,29 @@ def string2yearnum(str):
         return int(str)
     except ValueError:
         return None
+
+def row2dict(row, fields, alt_fields):
+    dict = {}
+
+    # Pull lines from fixed length fields in row
+    for field in fields:
+
+        # If there's an alt_field provided, use it
+        if alt_fields is not None and field in alt_fields:
+            dict[field] = alt_fields[field]
+        # Else, parse field out of fixed-length substring within the row
+        else:
+            field_str = row[fields[field]['start']:fields[field]['end']+1].strip()
+            if fields[field]['type'] == 'number':
+                if len(field_str) > 0:
+                    field_value = int(field_str)
+                else:
+                    field_value = 0
+            else:
+                field_value = field_str
+            dict[field] = field_value
+
+    return dict
 
 if __name__ == "__main__":
     main(sys.argv[1:])
