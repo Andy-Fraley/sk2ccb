@@ -67,6 +67,9 @@ def attendance_file2table(filename):
     service_time = None
     alt_full_name = None
 
+    attendance_line_sums = {}
+    found_names = []
+
     for line in open(filename):
 
 #        print line
@@ -97,6 +100,37 @@ def attendance_file2table(filename):
 
         # Match and process lines containing data
         else:
+
+#                  Total:                    133  134 145  109         521
+#                  Total:               85   111   99 129  142         566
+#                  Total:                    118  119 140  104   111   592
+            total_offsets = {}
+            total_offsets['week1'] = 38
+            total_offsets['week2'] = 44
+            total_offsets['week3'] = 49
+            total_offsets['week4'] = 53
+            total_offsets['week5'] = 58
+            total_offsets['week6'] = 64
+            total_offsets['total'] = 70
+            total_line_values = {}
+            matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
+            if matched_total_line:
+                for total_offset_name in total_offsets:
+                    offset = total_offsets[total_offset_name]
+                    total_str = line[offset:offset+3].strip()
+                    if len(total_str) > 0:
+                        total = int(total_str)
+                    else:
+                        total = 0
+                    total_line_values[total_offset_name] = total
+                print '*** Total line:'
+                print line
+                print total_line_values
+                print attendance_line_sums
+                for found_name in found_names:
+                    print found_name
+                print
+
             found_complete_line = False
 
             # One form of data line contains only attendance data for weeks 1-6 and total.  If we find one of
@@ -141,12 +175,28 @@ def attendance_file2table(filename):
             if found_complete_line:
                 # Pull lines from fixed length fields in 'line'
                 for field in fields:
+
                     # Use alt_full_name instead of fixed-length full_name field if it was set aside above
                     if field == 'full_name' and alt_full_name is not None:
                         print field, '"' + alt_full_name + '"'
+                        found_names.append(alt_full_name)
                         alt_full_name = None
                     else:
-                        print field, '"' + line[fields[field][0]:fields[field][1]+1].strip() + '"'
+                        start = fields[field][0]
+                        end = fields[field][1]+1
+                        field_str = line[start:end].strip()
+                        if field[:4] == 'week' or field == 'total':
+                            if len(field_str) > 0:
+                                field_value = int(field_str)
+                            else:
+                                field_value = 0
+                            if field in attendance_line_sums:
+                                attendance_line_sums[field] += field_value
+                            else:
+                                attendance_line_sums[field] = field_value
+                        elif field == 'full_name':
+                            found_names.append(field_str)
+                        print field, '"' + field_str + '"'
                 print
 
             # Buffer the current line for line folding if needed (see 'line folding' above)
