@@ -119,6 +119,7 @@ def attendance_file2table(filename):
     }
     full_name = None
     phone = None
+    row_dict2 = None
 
     for line in open(filename):
 
@@ -158,8 +159,14 @@ def attendance_file2table(filename):
             found_complete_line = False
 
             matched_everything_line = re.search('^ {6}' \
-                + '(?P<full_name>[A-Za-z\-\' ]+[A-Za-z], [A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)?\r?' \
-                + '(?P<phone> +[0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)?' \
+#                + '(?P<full_name>([A-Za-z][\-\' ]?)+[A-Za-z], ([A-Za-z][\-\' ]?)+[A-Za-z]\.?( \([A-Za-z]+\)))?\r?' \
+#                + '(?P<full_name>[A-Za-z][A-Za-z\-\' ]*[A-Za-z], [A-Za-z]+)?\r?' \
+#                + '(?P<full_name>[A-Za-z\-\' ]+[A-Za-z], [A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)?\r?' \
+#                + '(?P<full_name>[A-Za-z][A-Za-z\-\' ]*[A-Za-z], ' \
+#                +     '[A-Za-z][A-Za-z\-\' ]*[A-Za-z]( \([A-Za-z]+\))?\.?)?\r?' \
+                + '(?P<full_name>(?P<last_name>[A-Za-z]+([ \-\'][A-Za-z]+)*), ' \
+                    +  '(?P<first_name>[A-Za-z]+([\-\' ][A-Za-z]+)*)( \((?P<nick_name>[A-Za-z]+)\))?\.?)?\r?'
+                + '(?P<phone> +([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted))?' \
                 + '(?P<attendance> +(1 +)+[1-6])?\r?$', line)
             if matched_everything_line:
                 if matched_everything_line.group('full_name'):
@@ -223,7 +230,12 @@ def attendance_file2table(filename):
                 alt_full_name = None
                 row_dict = row2dict(line, attendance_row_fields, alt_fields)
                 for key in row_dict:
-                    if row_dict[key] != row_dict2[key]:
+                    if row_dict2 is None:
+                        print '*** row_dict:'
+                        print row_dict
+                        print
+                        break
+                    elif row_dict[key] != row_dict2[key]:
                         print '*** ERROR: row_dict != row_dict2'
                         print '*** row_dict:'
                         print row_dict
