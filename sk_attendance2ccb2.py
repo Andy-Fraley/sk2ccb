@@ -40,8 +40,8 @@ def join_tables(filename_pattern_list):
             print "Error: cannot open file '" + filename + "'"
         else:
             next_table = attendance_file2table(filename)
-            print '*** Filename: ' + filename
             print next_table
+            print
 
 #            for row in next_table:
 #                print row
@@ -55,6 +55,9 @@ def join_tables(filename_pattern_list):
     return None
 
 def attendance_file2table(filename):
+
+    print '*** PARSING FILE: ' + filename
+    print
 
     attendance_dicts = []
 
@@ -114,6 +117,8 @@ def attendance_file2table(filename):
         'week6': 0,
         'total': 0
     }
+    full_name = None
+    phone = None
 
     for line in open(filename):
 
@@ -152,11 +157,27 @@ def attendance_file2table(filename):
             # (prior_line), and need to track if we've match a complete line or just a fragment or non data line
             found_complete_line = False
 
-            matched_attendance_only_line = re.search('^ +((1 +)+[1-6])\r?$', line)
-            matched_phone_only_line = re.search('^ +((1 +)+[1-6])\r?$', line)
-            matched_complete_line = re.search('^ {6}([A-Za-z\-\' ]+[A-Za-z], ' \
-                + '[A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)\r? +(([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)? +' \
-                + '(1 +)+[1-6])\r?$', line)
+            matched_everything_line = re.search('^ {6}' \
+                + '(?P<full_name>[A-Za-z\-\' ]+[A-Za-z], [A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)?\r?' \
+                + '(?P<phone> +[0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)?' \
+                + '(?P<attendance> +(1 +)+[1-6])?\r?$', line)
+            if matched_everything_line:
+                if matched_everything_line.group('full_name'):
+                    full_name = matched_everything_line.group('full_name').strip()
+                if matched_everything_line.group('phone'):
+                    phone = matched_everything_line.group('phone').strip()
+                if matched_everything_line.group('attendance'):
+                    if full_name:
+                        row_dict2 = {}
+                        row_dict2['full_name'] = full_name
+                        if phone:
+                            row_dict2['phone'] = phone
+                        else:
+                            row_dict2['phone'] = ''
+                        attendance = matched_everything_line.group('attendance').strip()
+                        add_attendance(row_dict2, attendance)
+                        full_name = None
+                        phone = None
 
             # One form of data line contains only attendance data for weeks 1-6 and total.  If we find one of
             # these, take prior line (which contains name and maybe phone) and fold them together to create a
@@ -201,6 +222,16 @@ def attendance_file2table(filename):
                     alt_fields = None
                 alt_full_name = None
                 row_dict = row2dict(line, attendance_row_fields, alt_fields)
+                for key in row_dict:
+                    if row_dict[key] != row_dict2[key]:
+                        print '*** ERROR: row_dict != row_dict2'
+                        print '*** row_dict:'
+                        print row_dict
+                        print '*** row_dict2'
+                        print row_dict2
+                        print
+                        break
+
                 if row_dict['total'] != ( row_dict['week1'] + row_dict['week2'] + row_dict['week3'] +\
                                           row_dict['week4'] + row_dict['week5'] + row_dict['week6']):
                     print >> sys.stderr, '*** Filename: ' + filename + ', line number: ' + str(line_number)
@@ -239,17 +270,33 @@ def attendance_file2table(filename):
 
     return petl.fromdicts(attendance_dicts)
 
+
+def add_attendance(dict, attendance_str):
+
+    dict['total'] = int(attendance_str[-1])
+
+    week_offsets = [-7, -13, -18, -22, -27, -33]
+
+    for index, offset in enumerate(week_offsets):
+        if abs(offset) < (len(attendance_str) + 1) and attendance_str[offset] == '1':
+            dict['week' + str(6 - index)] = 1
+        else:
+            dict['week' + str(6 - index)] = 0
+
+            
 def string2monthnum(str):
     try:
         return list(calendar.month_name)[1:].index(str)+1
     except ValueError:
         return None
 
+
 def string2yearnum(str):
     try:
         return int(str)
     except ValueError:
         return None
+
 
 def row2dict(row, fields, alt_fields):
     dict = {}
