@@ -71,10 +71,16 @@ def attendance_file2table(filename):
 
     # Service event IDs
     event_ids = {}
-    event_ids['8'] = 4
     event_ids['9'] = 1
     event_ids['10'] = 2
     event_ids['11:15'] = 3
+    event_ids['8'] = 4
+
+    event_id_strings = {}
+    event_id_strings[1] = '9am'
+    event_id_strings[2] = '10am'
+    event_id_strings[3] = '11_15am'
+    event_id_strings[4] = '8am'
 
     # Starting state...found nothing
     prior_line = None
@@ -170,6 +176,13 @@ def attendance_file2table(filename):
 
             # Buffer the current line for line folding if needed (see 'line folding' above)
             prior_line = line
+
+    return_table = petl.fromdicts(attendance_dicts)
+
+    output_csv_filename = os.path.abspath( os.path.dirname(filename) + '/' + str(year) + format(month, '02d') + '_' + \
+        str(event_id_strings[event_id]) + '.csv' )
+    print output_csv_filename
+    petl.tocsv(return_table, output_csv_filename)
 
     return petl.fromdicts(attendance_dicts)
 
