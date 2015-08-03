@@ -14,7 +14,7 @@
 # x Allow spaces in last name (like "Etap Omia, Charlize")
 # x Pull off service time
 
-import sys, getopt, os.path, csv, argparse, petl, re, calendar
+import sys, getopt, os.path, csv, argparse, petl, re, calendar, pprint
 
 def main(argv):
     parser = argparse.ArgumentParser()
@@ -69,13 +69,15 @@ def attendance_file2table(filename):
         'total': { 'start': 70, 'end': 72, 'type': 'number' }
     }
 
-    # Service event IDs
+    # Service event IDs...plug these with actuals out of CCB once worship service events created
     event_ids = {}
     event_ids['9'] = 1
     event_ids['10'] = 2
     event_ids['11:15'] = 3
     event_ids['8'] = 4
 
+    # The following are only needed for reverse mapping to create CSV filenames.
+    # TODO - delete these settings...not needed by core program
     event_id_strings = {}
     event_id_strings[1] = '9am'
     event_id_strings[2] = '10am'
@@ -89,6 +91,17 @@ def attendance_file2table(filename):
     month = None
     year = None
     service_time = None
+    num_matched_name_lines = 0
+
+    accumulated_row_totals_dict = {
+        'week1': 0,
+        'week2': 0,
+        'week3': 0,
+        'week4': 0,
+        'week5': 0,
+        'week6': 0,
+        'total': 0
+    }
 
     for line in open(filename):
 
@@ -116,6 +129,12 @@ def attendance_file2table(filename):
 
         # ...then match attendance (row per person with weeks they attended) and total (summary at bottom) rows
         else:
+
+            matched_name_line = re.search('^\s*([A-Za-z\-\'\s]+[A-Za-z],\s+' \
+                + '[A-Za-z\-\'\s]+[A-Za-z](\s\([A-Za-z]+\))?\.?)', line)
+            if matched_name_line:
+                print line
+                num_matched_name_lines += 1
 
             # Once we found row with totals...we're done, that's last line in attendance file we need to parse
             matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
@@ -169,9 +188,11 @@ def attendance_file2table(filename):
                 row_dict = row2dict(line, attendance_row_fields, alt_fields)
                 if row_dict['total'] != ( row_dict['week1'] + row_dict['week2'] + row_dict['week3'] +\
                                           row_dict['week4'] + row_dict['week5'] + row_dict['week6']):
-                    print >> sys.stderr, '*** Bad row total:'
+                    print >> sys.stderr, 'ERROR:  Bad row total, doesn\'t match sum of weeks 1-6:'
                     print >> sys.stderr, row_dict
                     sys.exit(1)
+                for key in accumulated_row_totals_dict:
+                    accumulated_row_totals_dict[key] += row_dict[key]
                 attendance_dicts.append(row_dict)
 
             # Buffer the current line for line folding if needed (see 'line folding' above)
@@ -183,6 +204,18 @@ def attendance_file2table(filename):
         str(event_id_strings[event_id]) + '.csv' )
     print output_csv_filename
     petl.tocsv(return_table, output_csv_filename)
+
+    print '*** Num matched name lines: ' + str(num_matched_name_lines)
+
+    for key in accumulated_row_totals_dict:
+        if accumulated_row_totals_dict[key] != total_row_dict[key]:
+            pp = pprint.PrettyPrinter(stream=sys.stderr)
+            print >> sys.stderr, '*** WARNING:  Servant Keeper reported totals do not match data totals!'
+            print >> sys.stderr, 'Servant Keeper Totals:'
+            pp.pprint(total_row_dict)
+            print >> sys.stderr, 'Data Totals:'
+            pp.pprint(accumulated_row_totals_dict)
+            break
 
     return petl.fromdicts(attendance_dicts)
 
