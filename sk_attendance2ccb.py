@@ -4,8 +4,8 @@
 # x Cross check totals at bottom with sum(weekX) and sum(total) columns (to make sure no rows/data missed)
 #   NOTE!  Cross checks failed.  Seems Servant Keeper is buggy in reporting totals.  So they are emitted to
 #   stderr as WARNING (not ERROR) when Servant Keeper and data totals do not line up.
-# - Allow for long full_name^M<spaces>phone^L<6 spaces><data> as formatted double-split tri-line
-# - Allow for input file directory to be specified (in place of input filenames) and process all .txt files in that
+# x Allow for long full_name^M<spaces>phone^L<6 spaces><data> as formatted double-split tri-line
+# x Allow for input file directory to be specified (in place of input filenames) and process all .txt files in that
 #   directory
 # - Allow name2member_id mapping file to be specified and emit member_id along with name in output CSV
 # - Calculate weekX dates (from month and year)
@@ -17,7 +17,7 @@
 # x Allow spaces in last name (like "Etap Omia, Charlize")
 # x Pull off service time
 
-import sys, getopt, os.path, csv, argparse, petl, re, calendar, pprint, glob
+import sys, getopt, os.path, csv, argparse, petl, re, calendar, pprint, glob, datetime
 
 def main(argv):
     parser = argparse.ArgumentParser()
@@ -40,8 +40,8 @@ def join_tables(filename_pattern_list):
             print "Error: cannot open file '" + filename + "'"
         else:
             next_table = attendance_file2table(filename)
-            print '*** Filename: ' + filename
             print next_table
+            print
 
 #            for row in next_table:
 #                print row
@@ -56,19 +56,10 @@ def join_tables(filename_pattern_list):
 
 def attendance_file2table(filename):
 
-    attendance_dicts = []
+    print '*** PARSING FILE: ' + filename
+    print
 
-    attendance_row_fields = {
-        'full_name': { 'start': 6, 'end': 25, 'type': 'string' },
-        'phone': { 'start': 27, 'end': 38, 'type': 'string' },
-        'week1': { 'start': 40, 'end': 40, 'type': 'number' },
-        'week2': { 'start': 46, 'end': 46, 'type': 'number' },
-        'week3': { 'start': 51, 'end': 51, 'type': 'number' },
-        'week4': { 'start': 55, 'end': 55, 'type': 'number' },
-        'week5': { 'start': 60, 'end': 60, 'type': 'number' },
-        'week6': { 'start': 66, 'end': 66, 'type': 'number' },
-        'total': { 'start': 72, 'end': 72, 'type': 'number' }
-    }
+    attendance_dicts = []
 
     total_row_fields = {
         'week1': { 'start': 38, 'end': 40, 'type': 'number' },
@@ -114,6 +105,9 @@ def attendance_file2table(filename):
         'week6': 0,
         'total': 0
     }
+    full_name = None
+    phone = None
+    num_processed_lines = 0
 
     for line in open(filename):
 
@@ -127,6 +121,21 @@ def attendance_file2table(filename):
                     print >> sys.stderr, 'Invalid month or year found'
                     print >> sys.stderr, line
                     sys.exit(1)
+                first_day_in_month, num_days_in_month = calendar.monthrange(year, month)
+
+                # Create list of 6 date objects, month_sundays, representing week1, week2, ... week6 Sunday dates
+                # If a week has no Sunday, it is None
+                day_countup = 1
+                day_countup += (6 - first_day_in_month)
+                month_sundays = []
+                if first_day_in_month != 6:
+                    month_sundays.append(None)
+                while day_countup <= num_days_in_month:
+                    month_sundays.append(datetime.date(year, month, day_countup))
+                    day_countup += 7
+                while len(month_sundays) < 6:
+                    month_sundays.append(None)
+                print month_sundays
 
         # Second pick off line at front of file indicating worship service time that this attendance file is for...
         elif not matched_service_time:
@@ -143,78 +152,55 @@ def attendance_file2table(filename):
         else:
 
             # Once we found row with totals...we're done, that's last line in attendance file we need to parse
+
+            '                  Total:              xxx   118  119 140  104   111   592'
+            '      Wolff, Lonne         724-935-5113 1     1    1   1                3'
+
             matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
             if matched_total_line:
                 total_row_dict = row2dict(line, total_row_fields, None)
                 break
 
-            # Because of weird line wraps in attendance files, we may need to fold a line with a prior line
-            # (prior_line), and need to track if we've match a complete line or just a fragment or non data line
-            found_complete_line = False
+            match_line = re.search('^ {6}' \
+                + '(?P<full_name>(?P<last_name>[A-Za-z]+([ \-\'][A-Za-z]+)*), ' \
+                    +  '(?P<first_name>[A-Za-z]+([\-\' ][A-Za-z]+)*)( \((?P<nick_name>[A-Za-z]+)\))?\.?)?\r?'
+                + '(?P<phone> +([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted))?' \
+                + '(?P<attendance> +(1 +)+[1-6])?\r?$', line)
+            if match_line:
+                if match_line.group('full_name'):
+                    full_name = match_line.group('full_name').strip()
+                if match_line.group('phone'):
+                    phone = match_line.group('phone').strip()
+                if match_line.group('attendance'):
+                    if full_name:
+                        num_processed_lines += 1
+                        row_dict = {}
+                        row_dict['full_name'] = full_name
+                        if phone:
+                            row_dict['phone'] = phone
+                        else:
+                            row_dict['phone'] = ''
+                        attendance = match_line.group('attendance').strip()
+                        add_attendance(row_dict, attendance)
+                        full_name = None
+                        phone = None
+                        if row_dict['total'] != ( row_dict['week1'] + row_dict['week2'] + row_dict['week3'] +\
+                            row_dict['week4'] + row_dict['week5'] + row_dict['week6']):
+                            print >> sys.stderr, '*** Filename: ' + filename + ', line number: ' + str(line_number)
+                            print >> sys.stderr, 'ERROR:  Bad row total, doesn\'t match sum of weeks 1-6:'
+                            print >> sys.stderr, row_dict
+                            break
 
-            matched_attendance_only_line = re.search('^ +((1 +)+[1-6])\r?$', line)
-            matched_phone_only_line = re.search('^ +((1 +)+[1-6])\r?$', line)
-            matched_complete_line = re.search('^ {6}([A-Za-z\-\' ]+[A-Za-z], ' \
-                + '[A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)\r? +(([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)? +' \
-                + '(1 +)+[1-6])\r?$', line)
-
-            # One form of data line contains only attendance data for weeks 1-6 and total.  If we find one of
-            # these, take prior line (which contains name and maybe phone) and fold them together to create a
-            # whole data line (prior_line is stashed on earlier pass just in case this line folding is needed)
-            matched_attendance_only_line = re.search('^ +((1 +)+[1-6])\r?$', line)
-            if matched_attendance_only_line and prior_line:
-                line = ' ' * 6 + prior_line.strip() + ' ' * (matched_attendance_only_line.start(1) - \
-                    len(prior_line) + 2) + matched_attendance_only_line.group(1)
-                found_complete_line = True
-
-            else:
-                # Another form of data line is a complete line with full_name, phone (optional), followed
-                # by attendance data for weeks 1-6 and total
-                matched_complete_line = re.search('^ {6}([A-Za-z\-\' ]+[A-Za-z], ' \
-                    + '[A-Za-z\-\' ]+[A-Za-z]( \([A-Za-z]+\))?\.?)\r? +(([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted)? +' \
-                    + '(1 +)+[1-6])\r?$', line)
-                if matched_complete_line:
-                    found_complete_line = True
-
-                    # In one form of complete line, if the name is too big to fit into the full_name field,
-                    # it is followed by carriage return (not newline) and the next line contains the phone (if
-                    # present) and attandance data.  If this pattern occurs, we have to stash the (too long)
-                    # full name (it's set aside in alt_full_name), reformat the line without full_name (since it
-                    # doesn't fit), and then pull all fields except full_name normally and use alt_full_name
-                    # instead of truncated version of full_name that would be pulled from fixed-length full_name
-                    # field
-                    if len(matched_complete_line.group(1)) > 19:
-                        alt_full_name = matched_complete_line.group(1)
-                        line = ' ' * (attendance_row_fields['full_name']['end'] + 2) + matched_complete_line.group(3)
-                    else:
-                        alt_full_name = None
-
-            if found_complete_line:
-
-#                print '*** Line: ' + line
-
-                # Convert line to row dictionary
-                if alt_full_name is not None:
-#                    print '*** Alt full name: ' + alt_full_name
-                    alt_fields = { 'full_name': alt_full_name }
-                else:
-                    alt_fields = None
-                alt_full_name = None
-                row_dict = row2dict(line, attendance_row_fields, alt_fields)
-                if row_dict['total'] != ( row_dict['week1'] + row_dict['week2'] + row_dict['week3'] +\
-                                          row_dict['week4'] + row_dict['week5'] + row_dict['week6']):
-                    print >> sys.stderr, '*** Filename: ' + filename + ', line number: ' + str(line_number)
-                    print >> sys.stderr, 'ERROR:  Bad row total, doesn\'t match sum of weeks 1-6:'
-                    print >> sys.stderr, row_dict
-                    break
-#                    sys.exit(1)
-                for key in accumulated_row_totals_dict:
-                    accumulated_row_totals_dict[key] += row_dict[key]
-                attendance_dicts.append(row_dict)
+                        for key in accumulated_row_totals_dict:
+                            accumulated_row_totals_dict[key] += row_dict[key]
+                        attendance_dicts.append(row_dict)
 
             # Buffer the current line for line folding if needed (see 'line folding' above)
             prior_line = line
             line_number += 1
+
+    print '*** Number of processed attendance lines in file: ' + str(num_processed_lines)
+    print
 
     return_table = petl.fromdicts(attendance_dicts)
 
@@ -239,17 +225,33 @@ def attendance_file2table(filename):
 
     return petl.fromdicts(attendance_dicts)
 
+
+def add_attendance(dict, attendance_str):
+
+    dict['total'] = int(attendance_str[-1])
+
+    week_offsets = [-7, -13, -18, -22, -27, -33]
+
+    for index, offset in enumerate(week_offsets):
+        if abs(offset) < (len(attendance_str) + 1) and attendance_str[offset] == '1':
+            dict['week' + str(6 - index)] = 1
+        else:
+            dict['week' + str(6 - index)] = 0
+
+
 def string2monthnum(str):
     try:
         return list(calendar.month_name)[1:].index(str)+1
     except ValueError:
         return None
 
+
 def string2yearnum(str):
     try:
         return int(str)
     except ValueError:
         return None
+
 
 def row2dict(row, fields, alt_fields):
     dict = {}
@@ -273,6 +275,7 @@ def row2dict(row, fields, alt_fields):
             dict[field] = field_value
 
     return dict
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
