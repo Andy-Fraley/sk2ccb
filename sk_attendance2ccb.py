@@ -17,33 +17,37 @@
 # x Allow spaces in last name (like "Etap Omia, Charlize")
 # x Pull off service time
 # - Clean up code around dict2 stuff and drop original dict stuff
+# - Emit output CSV file
 
 import sys, getopt, os.path, csv, argparse, petl, re, calendar, pprint, glob, datetime
 
 
 def main(argv):
-    global last_first_name2sk_indiv_id
+    global full_name2sk_indiv_id
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--attendance-filename", required=True, nargs='+', action='append', \
         help="Attendance filename (input Servant Keeper attendance report file(s)...can be wildcard)")
     parser.add_argument("--mapping-filename", required=True, help="'Mapping' filename (CSV mapping file with " \
         "'last_name', 'first_name' and 'sk_ind_id' columns)")
-    parser.add_argument("--output-filename", required=True, help="'Output' filename (output XLS file)")
+    parser.add_argument("--output-filename", required=True, help="'Output' filename (output CSV file " \
+        "containing resulting <event_id>, <date>, <attending_individual_id> data)")
+    parser.add_argument('--emit-data-csvs', action='store_true', help="If specified, output a CSV file per input " \
+        "attendance data text file")
     args = parser.parse_args()
 
-    # Load up mapping matrix to map from last,first names to Servant Keeper IDs
-    last_first_name2sk_indiv_id = {}
+    # Load up mapping matrix to map from Servant Keeper full_name's to Servant Keeper individual_id's
+    full_name2sk_indiv_id = {}
     with open(args.mapping_filename, 'rb') as csvfile:
         csvreader = csv.reader(csvfile)
         for row in csvreader:
-            last_first_name2sk_indiv_id[row[0] + ',' + row[1]] = row[2]
-    print last_first_name2sk_indiv_id
+            full_name2sk_indiv_id[row[0] + ',' + row[1]] = row[2]
+    print full_name2sk_indiv_id
 
-    attendance_table = join_tables(args.attendance_filename[0])
+    attendance_table = join_tables(args.attendance_filename[0], args.emit_data_csvs)
 
 
-def join_tables(filename_pattern_list):
+def join_tables(filename_pattern_list, emit_data_csvs):
     curr_table = None
     filenames_list = []
     for filename_pattern in filename_pattern_list:
@@ -54,7 +58,7 @@ def join_tables(filename_pattern_list):
         if not os.path.isfile(filename):
             print >> sys.stderr, "*** Error! Cannot open file '" + filename + "'"
         else:
-            next_table = attendance_file2table(filename)
+            next_table = attendance_file2table(filename, emit_data_csvs)
             print next_table
             print
 
@@ -69,8 +73,8 @@ def join_tables(filename_pattern_list):
 
     return None
 
-def attendance_file2table(filename):
-    global last_first_name2sk_indiv_id
+def attendance_file2table(filename, emit_data_csvs):
+    global full_name2sk_indiv_id
 
     print '*** PARSING FILE: ' + filename
     print
@@ -97,12 +101,12 @@ def attendance_file2table(filename):
     # The following are only needed for reverse mapping to create CSV filenames.
     # TODO - delete these settings...not needed by core program
     event_id_strings = {}
-    event_id_strings[1] = '9am'
+    event_id_strings[1] = '09am'
     event_id_strings[2] = '10am'
     event_id_strings[3] = '11_15am'
-    event_id_strings[4] = '8am'
+    event_id_strings[4] = '08am'
 
-    # Starting state...found nothing
+    # Starting state...
     prior_line = None
     matched_month_year = None
     matched_service_time = None
@@ -220,7 +224,7 @@ def attendance_file2table(filename):
 
     return_table = petl.fromdicts(attendance_dicts)
 
-    if event_id:
+    if emit_data_csvs and event_id:
         output_csv_filename = os.path.dirname(filename) + '/' + str(year) + format(month, '02d') + '_' + \
                               str(event_id_strings[event_id]) + '.csv'
         petl.tocsv(return_table, output_csv_filename)
@@ -235,18 +239,15 @@ def attendance_file2table(filename):
                         '(?P<first_name>[A-Za-z]+([\-\' ][A-Za-z]+)*)', attendance_dict['full_name'])
                     if matched_last_first:
                         attendance_dict2 = {}
-                        last_name = matched_last_first.group('last_name')
-                        first_name = matched_last_first.group('first_name')
-#                        last_first_name = last_name + ',' + first_name
-                        last_first_name = attendance_dict['full_name'].replace(', ', ',')
-                        if last_first_name in last_first_name2sk_indiv_id:
-                            attendance_dict2['sk_indiv_id'] = last_first_name2sk_indiv_id[last_first_name]
+                        full_name = attendance_dict['full_name'].replace(', ', ',')
+                        if full_name in full_name2sk_indiv_id:
+                            attendance_dict2['sk_indiv_id'] = full_name2sk_indiv_id[full_name]
                             attendance_dict2['date'] = month_sundays[week_index]
                             attendance_dict2['event_id'] = event_id
                             print attendance_dict2
                             attendance_dicts2.append(attendance_dict2)
                         else:
-                            print >> sys.stderr, '*** WARNING! Cannot find "' + last_first_name + '" in map'
+                            print >> sys.stderr, '*** WARNING! Cannot find "' + full_name + '" in map'
 
     # Check if numbers on Servant Keeper's reported Total: line match the totals we've been accumulating
     # per attendance row entry.  If they don't match, show WARNING (not ERROR, since via manual checks, it appears
