@@ -7,8 +7,8 @@
 # x Allow for long full_name^M<spaces>phone^L<6 spaces><data> as formatted double-split tri-line
 # x Allow for input file directory to be specified (in place of input filenames) and process all .txt files in that
 #   directory
-# - Allow name2member_id mapping file to be specified and emit member_id along with name in output CSV
-# - Calculate weekX dates (from month and year)
+# x Allow name2member_id mapping file to be specified and emit member_id along with name in output CSV
+# x Calculate weekX dates (from month and year)
 # x Allow for long names with ^M followed by rest of line (a form of line folding)
 # x Allow for first/last names to have '-' character in them
 # x Allow first names to have '(' and ')' characters in them, like "Margaret (Meg)"
@@ -16,17 +16,32 @@
 # x Allow first names with '.' (like "Houser, Kermit J.")
 # x Allow spaces in last name (like "Etap Omia, Charlize")
 # x Pull off service time
+# - Clean up code around dict2 stuff and drop original dict stuff
 
 import sys, getopt, os.path, csv, argparse, petl, re, calendar, pprint, glob, datetime
 
+
 def main(argv):
+    global last_first_name2sk_indiv_id
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--attendance-filename", required=True, nargs='+', action='append', \
         help="Attendance filename (input Servant Keeper attendance report file(s)...can be wildcard)")
+    parser.add_argument("--mapping-filename", required=True, help="'Mapping' filename (CSV mapping file with " \
+        "'last_name', 'first_name' and 'sk_ind_id' columns)")
     parser.add_argument("--output-filename", required=True, help="'Output' filename (output XLS file)")
     args = parser.parse_args()
 
+    # Load up mapping matrix to map from last,first names to Servant Keeper IDs
+    last_first_name2sk_indiv_id = {}
+    with open(args.mapping_filename, 'rb') as csvfile:
+        csvreader = csv.reader(csvfile)
+        for row in csvreader:
+            last_first_name2sk_indiv_id[row[0] + ',' + row[1]] = row[2]
+    print last_first_name2sk_indiv_id
+
     attendance_table = join_tables(args.attendance_filename[0])
+
 
 def join_tables(filename_pattern_list):
     curr_table = None
@@ -37,7 +52,7 @@ def join_tables(filename_pattern_list):
 
     for filename in sorted(set(filenames_list)):
         if not os.path.isfile(filename):
-            print "Error: cannot open file '" + filename + "'"
+            print >> sys.stderr, "*** Error! Cannot open file '" + filename + "'"
         else:
             next_table = attendance_file2table(filename)
             print next_table
@@ -55,6 +70,7 @@ def join_tables(filename_pattern_list):
     return None
 
 def attendance_file2table(filename):
+    global last_first_name2sk_indiv_id
 
     print '*** PARSING FILE: ' + filename
     print
@@ -118,8 +134,10 @@ def attendance_file2table(filename):
                 month = string2monthnum(matched_month_year.group(1))
                 year = string2yearnum(matched_month_year.group(2))
                 if not(month and year):
-                    print >> sys.stderr, 'Invalid month or year found'
+                    print >> sys.stderr, '*** Filename: ' + filename + ', line number: ' + str(line_number)
+                    print >> sys.stderr, '*** ERROR! Invalid month or year found'
                     print >> sys.stderr, line
+                    print >> sys.stderr
                     sys.exit(1)
                 first_day_in_month, num_days_in_month = calendar.monthrange(year, month)
 
@@ -135,7 +153,6 @@ def attendance_file2table(filename):
                     day_countup += 7
                 while len(month_sundays) < 6:
                     month_sundays.append(None)
-                print month_sundays
 
         # Second pick off line at front of file indicating worship service time that this attendance file is for...
         elif not matched_service_time:
@@ -145,33 +162,31 @@ def attendance_file2table(filename):
                 if service_time in event_ids:
                     event_id = event_ids[service_time]
                 else:
+                    print >> sys.stderr, '*** Filename: ' + filename + ', line number: ' + str(line_number)
                     print >> sys.stderr, '*** ERROR! Unrecognized service_time: "' + service_time + '"'
+                    print >> sys.stderr
                     sys.exit(1)
 
         # ...then match attendance (row per person with weeks they attended) and total (summary at bottom) rows
         else:
 
             # Once we found row with totals...we're done, that's last line in attendance file we need to parse
-
-            '                  Total:              xxx   118  119 140  104   111   592'
-            '      Wolff, Lonne         724-935-5113 1     1    1   1                3'
-
             matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
             if matched_total_line:
                 total_row_dict = row2dict(line, total_row_fields, None)
                 break
 
-            match_line = re.search('^ {6}' \
+            matched_attendance_line = re.search('^ {6}' \
                 + '(?P<full_name>(?P<last_name>[A-Za-z]+([ \-\'][A-Za-z]+)*), ' \
                     +  '(?P<first_name>[A-Za-z]+([\-\' ][A-Za-z]+)*)( \((?P<nick_name>[A-Za-z]+)\))?\.?)?\r?'
                 + '(?P<phone> +([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted))?' \
                 + '(?P<attendance> +(1 +)+[1-6])?\r?$', line)
-            if match_line:
-                if match_line.group('full_name'):
-                    full_name = match_line.group('full_name').strip()
-                if match_line.group('phone'):
-                    phone = match_line.group('phone').strip()
-                if match_line.group('attendance'):
+            if matched_attendance_line:
+                if matched_attendance_line.group('full_name'):
+                    full_name = matched_attendance_line.group('full_name').strip()
+                if matched_attendance_line.group('phone'):
+                    phone = matched_attendance_line.group('phone').strip()
+                if matched_attendance_line.group('attendance'):
                     if full_name:
                         num_processed_lines += 1
                         row_dict = {}
@@ -180,15 +195,16 @@ def attendance_file2table(filename):
                             row_dict['phone'] = phone
                         else:
                             row_dict['phone'] = ''
-                        attendance = match_line.group('attendance').strip()
+                        attendance = matched_attendance_line.group('attendance').strip()
                         add_attendance(row_dict, attendance)
                         full_name = None
                         phone = None
                         if row_dict['total'] != ( row_dict['week1'] + row_dict['week2'] + row_dict['week3'] +\
                             row_dict['week4'] + row_dict['week5'] + row_dict['week6']):
                             print >> sys.stderr, '*** Filename: ' + filename + ', line number: ' + str(line_number)
-                            print >> sys.stderr, 'ERROR:  Bad row total, doesn\'t match sum of weeks 1-6:'
+                            print >> sys.stderr, '*** ERROR! Bad row total, doesn\'t match sum of weeks 1-6'
                             print >> sys.stderr, row_dict
+                            print >> sys.stderr
                             break
 
                         for key in accumulated_row_totals_dict:
@@ -209,6 +225,29 @@ def attendance_file2table(filename):
                               str(event_id_strings[event_id]) + '.csv'
         petl.tocsv(return_table, output_csv_filename)
 
+    attendance_dicts2 = []
+    for attendance_dict in attendance_dicts:
+        for key in attendance_dict:
+            if key[:4] == 'week':
+                week_index = int(key[4:5]) - 1
+                if month_sundays[week_index] is not None:
+                    matched_last_first = re.search('(?P<last_name>[A-Za-z]+([ \-\'][A-Za-z]+)*), ' \
+                        '(?P<first_name>[A-Za-z]+([\-\' ][A-Za-z]+)*)', attendance_dict['full_name'])
+                    if matched_last_first:
+                        attendance_dict2 = {}
+                        last_name = matched_last_first.group('last_name')
+                        first_name = matched_last_first.group('first_name')
+#                        last_first_name = last_name + ',' + first_name
+                        last_first_name = attendance_dict['full_name'].replace(', ', ',')
+                        if last_first_name in last_first_name2sk_indiv_id:
+                            attendance_dict2['sk_indiv_id'] = last_first_name2sk_indiv_id[last_first_name]
+                            attendance_dict2['date'] = month_sundays[week_index]
+                            attendance_dict2['event_id'] = event_id
+                            print attendance_dict2
+                            attendance_dicts2.append(attendance_dict2)
+                        else:
+                            print >> sys.stderr, '*** WARNING! Cannot find "' + last_first_name + '" in map'
+
     # Check if numbers on Servant Keeper's reported Total: line match the totals we've been accumulating
     # per attendance row entry.  If they don't match, show WARNING (not ERROR, since via manual checks, it appears
     # that Servant Keeper totals are buggy)
@@ -216,14 +255,15 @@ def attendance_file2table(filename):
         for key in accumulated_row_totals_dict:
             if accumulated_row_totals_dict[key] != total_row_dict[key]:
                 pp = pprint.PrettyPrinter(stream=sys.stderr)
-                print >> sys.stderr, '*** WARNING:  Servant Keeper reported totals do not match data totals!'
+                print >> sys.stderr, '*** WARNING! Servant Keeper reported totals do not match data totals'
                 print >> sys.stderr, 'Servant Keeper Totals:'
                 pp.pprint(total_row_dict)
                 print >> sys.stderr, 'Data Totals:'
                 pp.pprint(accumulated_row_totals_dict)
+                print >> sys.stderr
                 break
 
-    return petl.fromdicts(attendance_dicts)
+    return return_table
 
 
 def add_attendance(dict, attendance_str):
