@@ -16,6 +16,9 @@
 # x Allow first names with '.' (like "Houser, Kermit J.")
 # x Allow spaces in last name (like "Etap Omia, Charlize")
 # x Pull off service time
+# x March 2015 service doesn't match on Total line (match2)
+# x 'total' field not summed in 2dict()
+# - Refactor add_attendance() vs row2dict() approaches to negative-indexing version for both (add_attendance() flavor)
 # - Clean up code around dict2 stuff and drop original dict stuff
 # - Emit output CSV file
 
@@ -178,6 +181,11 @@ def attendance_file2table(filename, emit_data_csvs):
             matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
             if matched_total_line:
                 total_row_dict = row2dict(line, total_row_fields, None)
+                matched_total_line2 = re.search('^ {18}Total: {13}(?P<attendance>( +[0-9]+)+)\r?$', line)
+                if matched_total_line2:
+                    totals_attendance_dict = attendance_str2dict(matched_total_line2.group('attendance'), \
+                        [-3, -9, -15, -20, -24, -29, -35], 3)
+                    print totals_attendance_dict
                 break
 
             matched_attendance_line = re.search('^ {6}' \
@@ -278,6 +286,31 @@ def add_attendance(dict, attendance_str):
             dict['week' + str(6 - index)] = 1
         else:
             dict['week' + str(6 - index)] = 0
+
+
+def attendance_str2dict(attendance_str, offsets_list, field_len):
+    print '"' + attendance_str + '"'
+    return_dict = {}
+    spaces = ' ' * field_len
+    for index, offset in enumerate(offsets_list):
+        if index == 0:
+            field_name = 'total'
+        else:
+            field_name = 'week' + str(7 - index)
+        if abs(offset) < (len(attendance_str) + 1):
+            if offset+field_len == 0:
+                field_str = attendance_str[offset:].strip()
+            else:
+                field_str = attendance_str[offset:offset+field_len].strip()
+            if field_str == '':
+                field_value = 0
+            else:
+                field_value = int(field_str)
+        else:
+            field_value = 0
+        print index, offset, field_len, '"' + field_str + '"', field_name, field_value
+        return_dict[field_name] = field_value
+    return return_dict
 
 
 def string2monthnum(str):
