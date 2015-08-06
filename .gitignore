@@ -8,3 +8,6 @@ __pycache__/
 
 # Source attendance files (being transformed for loading)
 attendance_data_files/
+
+# Program output
+output.csv
