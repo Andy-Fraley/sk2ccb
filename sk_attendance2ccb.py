@@ -45,7 +45,7 @@ def main(argv):
         csvreader = csv.reader(csvfile)
         for row in csvreader:
             full_name2sk_indiv_id[row[0] + ',' + row[1]] = row[2]
-    print full_name2sk_indiv_id
+#    print full_name2sk_indiv_id
 
     attendance_table = join_tables(args.attendance_filename[0], args.emit_data_csvs)
 
@@ -62,8 +62,8 @@ def join_tables(filename_pattern_list, emit_data_csvs):
             print >> sys.stderr, "*** Error! Cannot open file '" + filename + "'"
         else:
             next_table = attendance_file2table(filename, emit_data_csvs)
-            print next_table
-            print
+#            print next_table
+#            print
 
 #            for row in next_table:
 #                print row
@@ -79,7 +79,7 @@ def join_tables(filename_pattern_list, emit_data_csvs):
 def attendance_file2table(filename, emit_data_csvs):
     global full_name2sk_indiv_id
 
-    print '*** PARSING FILE: ' + filename
+    print '*** Parsing file: ' + filename
     print
 
     attendance_dicts = []
@@ -178,14 +178,14 @@ def attendance_file2table(filename, emit_data_csvs):
         else:
 
             # Once we found row with totals...we're done, that's last line in attendance file we need to parse
-            matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
-            if matched_total_line:
-                total_row_dict = row2dict(line, total_row_fields, None)
-                matched_total_line2 = re.search('^ {18}Total: {13}(?P<attendance>( +[0-9]+)+)\r?$', line)
-                if matched_total_line2:
-                    totals_attendance_dict = attendance_str2dict(matched_total_line2.group('attendance'), \
-                        [-3, -9, -15, -20, -24, -29, -35], 3)
-                    print totals_attendance_dict
+#            matched_total_line = re.search('^ +Total: +([0-9]+ +)+[0-9]+\r?$', line)
+#            if matched_total_line:
+#                total_row_dict = row2dict(line, total_row_fields, None)
+            matched_total_line2 = re.search('^ {18}Total: {13}(?P<attendance>( +[0-9]+)+)\r?$', line)
+            if matched_total_line2:
+                totals_attendance_dict = attendance_str2dict(matched_total_line2.group('attendance'),
+                                                             [-3, -9, -15, -20, -24, -29, -35], 3)
+#                print totals_attendance_dict
                 break
 
             matched_attendance_line = re.search('^ {6}' \
@@ -200,15 +200,18 @@ def attendance_file2table(filename, emit_data_csvs):
                     phone = matched_attendance_line.group('phone').strip()
                 if matched_attendance_line.group('attendance'):
                     if full_name:
-                        num_processed_lines += 1
-                        row_dict = {}
+                        attendance = matched_attendance_line.group('attendance').strip()
+                        row_dict = attendance_str2dict(attendance, [-1, -7, -13, -18, -22, -27, -33], 1)
                         row_dict['full_name'] = full_name
                         if phone:
                             row_dict['phone'] = phone
                         else:
                             row_dict['phone'] = ''
-                        attendance = matched_attendance_line.group('attendance').strip()
-                        add_attendance(row_dict, attendance)
+#                        print '"' + attendance + '"'
+#                        print attendance_str2dict(attendance, [-1, -7, -13, -18, -22, -27, -33], 1)
+#                        print
+#                        add_attendance(row_dict, attendance)
+                        num_processed_lines += 1
                         full_name = None
                         phone = None
                         if row_dict['total'] != ( row_dict['week1'] + row_dict['week2'] + row_dict['week3'] +\
@@ -252,7 +255,7 @@ def attendance_file2table(filename, emit_data_csvs):
                             attendance_dict2['sk_indiv_id'] = full_name2sk_indiv_id[full_name]
                             attendance_dict2['date'] = month_sundays[week_index]
                             attendance_dict2['event_id'] = event_id
-                            print attendance_dict2
+#                            print attendance_dict2
                             attendance_dicts2.append(attendance_dict2)
                         else:
                             print >> sys.stderr, '*** WARNING! Cannot find "' + full_name + '" in map'
@@ -260,13 +263,13 @@ def attendance_file2table(filename, emit_data_csvs):
     # Check if numbers on Servant Keeper's reported Total: line match the totals we've been accumulating
     # per attendance row entry.  If they don't match, show WARNING (not ERROR, since via manual checks, it appears
     # that Servant Keeper totals are buggy)
-    if total_row_dict:
+    if totals_attendance_dict:
         for key in accumulated_row_totals_dict:
-            if accumulated_row_totals_dict[key] != total_row_dict[key]:
+            if accumulated_row_totals_dict[key] != totals_attendance_dict[key]:
                 pp = pprint.PrettyPrinter(stream=sys.stderr)
                 print >> sys.stderr, '*** WARNING! Servant Keeper reported totals do not match data totals'
                 print >> sys.stderr, 'Servant Keeper Totals:'
-                pp.pprint(total_row_dict)
+                pp.pprint(totals_attendance_dict)
                 print >> sys.stderr, 'Data Totals:'
                 pp.pprint(accumulated_row_totals_dict)
                 print >> sys.stderr
@@ -287,9 +290,25 @@ def add_attendance(dict, attendance_str):
         else:
             dict['week' + str(6 - index)] = 0
 
-
+            
 def attendance_str2dict(attendance_str, offsets_list, field_len):
-    print '"' + attendance_str + '"'
+    """
+    Parses numeric fields at negative-offset positions in string
+
+    :param str attendance_str: The string containing integer numeric fields named 'week1', 'week2', ... 'week6',
+    'total' from left to right
+
+    :param list offsets_list: A list of 7 negative offsets starting with right-most ('total'), then 'week6' ... 'week1'
+    field offset positions all expressed as negative integer (specifying distance from end of string to the first
+    character in the field
+
+    :param int field_len: Fixed length of all fields being parsed from the string.  If numbers range from 0-999, then
+    would be 3.  If numbers range from 0-9, then would be 1
+
+    :return: Dictionary of integer field values for 'week1'...'week6' and 'total'
+    :rtype: dict
+    """
+#    print '"' + attendance_str + '"'
     return_dict = {}
     spaces = ' ' * field_len
     for index, offset in enumerate(offsets_list):
@@ -308,7 +327,8 @@ def attendance_str2dict(attendance_str, offsets_list, field_len):
                 field_value = int(field_str)
         else:
             field_value = 0
-        print index, offset, field_len, '"' + field_str + '"', field_name, field_value
+#            field_str = ''
+#        print index, offset, field_len, '"' + field_str + '"', field_name, field_value
         return_dict[field_name] = field_value
     return return_dict
 
