@@ -1,0 +1,10 @@
+# Python byte-compiled, optimized, and DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# pydoc output
+*.html
+
+# Source attendance files (being transformed for loading)
+attendance_data_files/
