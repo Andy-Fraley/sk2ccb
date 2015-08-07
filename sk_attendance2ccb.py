@@ -59,7 +59,8 @@ def attendance_file2table(filename, emit_data_csvs):
 
     attendance_dicts = []
 
-    # Service event IDs...plug these with actuals out of CCB once worship service events created
+    # CCB's Worship Service event IDs...
+    # TODO!  Plug these with actuals out of CCB once worship service events created
     event_ids = {}
     event_ids['9'] = 1
     event_ids['10'] = 2
