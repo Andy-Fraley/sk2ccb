@@ -25,12 +25,17 @@ def main(argv):
         for row in csvreader:
             full_name2sk_indiv_id[row[0] + ', ' + row[1]] = row[2]
 
-    attendance_table = join_tables(args.attendance_filename[0], args.emit_data_csvs)
+    if args.emit_data_csvs:
+        output_csv_filebase = os.path.dirname(args.output_filename)
+    else:
+        output_csv_filebase = None
+
+    attendance_table = join_tables(args.attendance_filename[0], output_csv_filebase)
 
     petl.tocsv(attendance_table, args.output_filename)
 
 
-def join_tables(filename_pattern_list, emit_data_csvs):
+def join_tables(filename_pattern_list, output_csv_filebase):
     curr_table = None
     filenames_list = []
     for filename_pattern in filename_pattern_list:
@@ -42,7 +47,7 @@ def join_tables(filename_pattern_list, emit_data_csvs):
             print >> sys.stderr, "*** Error! Cannot open file '" + filename + "'"
             print >> sys.stderr
         else:
-            next_table = attendance_file2table(filename, emit_data_csvs)
+            next_table = attendance_file2table(filename, output_csv_filebase)
             if curr_table is not None:
                 curr_table = petl.cat(curr_table, next_table)
             else:
@@ -51,7 +56,7 @@ def join_tables(filename_pattern_list, emit_data_csvs):
     return curr_table
 
 
-def attendance_file2table(filename, emit_data_csvs):
+def attendance_file2table(filename, output_csv_filebase):
     global full_name2sk_indiv_id
 
     print '*** Parsing file: ' + filename
@@ -191,8 +196,8 @@ def attendance_file2table(filename, emit_data_csvs):
     print '*** Number of attendees: ' + str(accumulated_row_totals_dict['total'])
     print
 
-    if emit_data_csvs and event_id:
-        output_csv_filename = os.path.dirname(filename) + '/' + str(year) + format(month, '02d') + '_' + \
+    if output_csv_filebase and event_id:
+        output_csv_filename = output_csv_filebase + '/' + str(year) + format(month, '02d') + '_' + \
                               str(event_id_strings[event_id]) + '.csv'
         all_columns_table = petl.fromdicts(attendance_dicts)
         petl.tocsv(all_columns_table, output_csv_filename)
