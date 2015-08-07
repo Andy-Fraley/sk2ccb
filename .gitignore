@@ -6,5 +6,6 @@ __pycache__/
 # pydoc output
 *.html
 
-# Source attendance files (being transformed for loading)
+# Input/output file directories (do NOT post any church data into GitHub)
 attendance_data_files/
+membership_data_files/
