@@ -18,10 +18,75 @@ def main(argv):
         print >> sys.stderr, "Error: cannot open file '" + args.individuals_filename + "'"
         sys.exit(1)
 
-    individuals_input_table = petl.fromcsv(args.individuals_filename)
-    individuals_output_table = transform_rename_columns(individuals_input_table)
+    input_table = petl.fromcsv(args.individuals_filename)
+    transform_pipeline = get_transform_pipeline()
+    output_table = execute_transform_pipeline(transform_pipeline, input_table)
+    petl.tocsv(output_table, args.output_filename)
 
-    petl.tocsv(individuals_output_table, args.output_filename)
+
+def match_replace(input_values, match_replace_list):
+    output_values = []
+    for value in input_values:
+        for match_replace in match_replace_list:
+            new_value = re.sub(match_replace[0], match_replace[1], value)
+            output_values.append(new_value)
+    return output_values
+
+
+def strip_empty_dates(input_values):
+    return match_replace(input_values, [(r'^\s+/\s+/\s+$', '')])
+
+
+def execute_transform_pipeline(transform_pipeline, input_table):
+    output_table = petl.empty()
+    for transform_node in transform_pipeline:
+        input_columns = petl.values(input_table, transform_node['input'])
+        pre_validator = transform_node['pre_validator']
+        if pre_validator:
+            pre_validator(input_columns)
+        transforms = transform_node['transforms']
+        if transforms:
+            prior_output_column = None
+            for transform in transforms:
+                if prior_output_column:
+                    output_column = transform(prior_output_column)
+                else:
+                    output_column = transform(input_columns)
+                prior_output_column = output_column
+        else:
+            if len(input_columns) == 1:
+                output_column = input_columns[0]
+            else:
+                print >> sys.stderr, "*** Error!  No (reducing) transform(s) specified but more than one input " \
+                    "column"
+                print >> sys.stderr, transform_node
+                sys.exit(1)
+        if post_validator:
+            post_validator(output_column)
+        output_table = addcolumn(output_table, transform_node['output'], output_column)
+    return output_table
+
+
+def get_transform_pipeline()
+    transform_pipeline = [
+        {
+            'input': ['Address'],
+            'pre_validator': None,
+            'transforms': None,
+            'output': 'home street',
+            'post_validator': None
+        },
+
+        {
+            'input': ['Birth Date'],
+            'pre_validator': None,
+            'transforms': [strip_empty_dates],
+            'output': 'birthday',
+            'post_validator': None
+        }
+    ]
+
+    return transform_pipeline
 
 
 def transform_rename_columns(individuals_input_table):

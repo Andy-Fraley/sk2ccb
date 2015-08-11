@@ -9,3 +9,6 @@ __pycache__/
 # Input/output file directories (do NOT post any church data into GitHub)
 attendance_data_files/
 membership_data_files/
+
+# Mac caches file directory icon
+.DS_Store
