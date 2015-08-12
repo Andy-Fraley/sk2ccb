@@ -73,8 +73,38 @@ def execute_transform_pipeline(transform_pipeline, input_table):
     return output_table
 
 
+def reorder_columns(table, pipeline):
+    column_order = [ item['output'] for item in pipeline ]
+    return petl.cut(table, column_order)
+
+
 def get_transform_pipeline():
+    # Note - Output columns are in order of 'output' fields below
     transform_pipeline = [
+        {
+            'input': ['Individual ID'],
+            'pre_validator': None,
+            'transforms': None,
+            'output': 'individual id',
+            'post_validator': None
+        },
+
+        {
+            'input': ['Family ID'],
+            'pre_validator': None,
+            'transforms': None,
+            'output': 'family id',
+            'post_validator': None
+        },
+
+        {
+            'input': ['Individual ID'],
+            'pre_validator': None,
+            'transforms': None,
+            'output': 'sync id',
+            'post_validator': None
+        },
+
         {
             'input': ['Address'],
             'pre_validator': None,
