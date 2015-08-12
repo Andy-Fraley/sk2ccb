@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-import sys, getopt, os.path, csv, argparse, petl
+import sys, getopt, os.path, csv, argparse, petl, re
 
 
 def main(argv):
@@ -28,19 +28,24 @@ def match_replace(input_values, match_replace_list):
     output_values = []
     for value in input_values:
         for match_replace in match_replace_list:
-            new_value = re.sub(match_replace[0], match_replace[1], value)
-            output_values.append(new_value)
+            value = re.sub(match_replace[0], match_replace[1], value)
+        output_values.append(value)
     return output_values
 
 
-def strip_empty_dates(input_values):
-    return match_replace(input_values, [(r'^\s+/\s+/\s+$', '')])
+def strip_empty_and_incomplete_dates(input_values):
+    return match_replace(input_values, [(r'^\s+/\s+/\s+$', ''), (r'^\d{1,2}/\d{1,2}/\s+$','')])
+
+
+def strip_empty_phone_numbers(input_values):
+    return match_replace(input_values, [(r'^\s+\-\s+\-\s+$', '')])
 
 
 def execute_transform_pipeline(transform_pipeline, input_table):
     output_table = petl.empty()
     for transform_node in transform_pipeline:
-        input_columns = petl.values(input_table, transform_node['input'])
+        input_column_names = transform_node['input']
+        input_columns = petl.values(input_table, input_column_names)
         pre_validator = transform_node['pre_validator']
         if pre_validator:
             pre_validator(input_columns)
@@ -54,20 +59,21 @@ def execute_transform_pipeline(transform_pipeline, input_table):
                     output_column = transform(input_columns)
                 prior_output_column = output_column
         else:
-            if len(input_columns) == 1:
-                output_column = input_columns[0]
+            if len(input_column_names) == 1:
+                output_column = input_columns
             else:
                 print >> sys.stderr, "*** Error!  No (reducing) transform(s) specified but more than one input " \
                     "column"
                 print >> sys.stderr, transform_node
                 sys.exit(1)
+        post_validator = transform_node['post_validator']
         if post_validator:
             post_validator(output_column)
-        output_table = addcolumn(output_table, transform_node['output'], output_column)
+        output_table = petl.addcolumn(output_table, transform_node['output'], output_column)
     return output_table
 
 
-def get_transform_pipeline()
+def get_transform_pipeline():
     transform_pipeline = [
         {
             'input': ['Address'],
@@ -80,10 +86,19 @@ def get_transform_pipeline()
         {
             'input': ['Birth Date'],
             'pre_validator': None,
-            'transforms': [strip_empty_dates],
+            'transforms': [strip_empty_and_incomplete_dates],
             'output': 'birthday',
             'post_validator': None
+        },
+
+        {
+            'input': ['Cell Phone'],
+            'pre_validator': None,
+            'transforms': [strip_empty_phone_numbers],
+            'output': 'cell phone',
+            'post_validator': None
         }
+
     ]
 
     return transform_pipeline
