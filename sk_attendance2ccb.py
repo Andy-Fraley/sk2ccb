@@ -12,10 +12,12 @@ def main(argv):
         help="Attendance filename (input Servant Keeper attendance report file(s)...can be wildcard)")
     parser.add_argument("--mapping-filename", required=True, help="'Mapping' filename (CSV mapping file with " \
         "'last_name', 'first_name' and 'sk_ind_id' columns)")
-    parser.add_argument("--output-filename", required=True, help="'Output' filename (output CSV file " \
-        "containing resulting <event_id>, <date>, <attending_individual_id> data)")
+    parser.add_argument("--output-filename", required=True, help="'Output' filename (output loading CSV file " \
+                        "containing resulting <date>, <time>, <ccb_event_id>, <sk_indiv_id> data)")
     parser.add_argument('--emit-data-csvs', action='store_true', help="If specified, output a CSV file per input " \
         "attendance data text file")
+    parser.add_argument('--add-extra-fields', action='store_true', help="If specified, emit attender's full name, " \
+                        "event name, and Servant Keeper week number in addition to base fields into loading CSV file")
     args = parser.parse_args()
 
     # Load up mapping matrix to map from Servant Keeper full_name's to Servant Keeper individual_id's
@@ -30,12 +32,12 @@ def main(argv):
     else:
         output_csv_filebase = None
 
-    attendance_table = join_tables(args.attendance_filename[0], output_csv_filebase)
+    attendance_table = join_tables(args.attendance_filename[0], output_csv_filebase, args.add_extra_fields)
 
     petl.tocsv(attendance_table, args.output_filename)
 
 
-def join_tables(filename_pattern_list, output_csv_filebase):
+def join_tables(filename_pattern_list, output_csv_filebase, add_extra_fields):
     curr_table = None
     filenames_list = []
     for filename_pattern in filename_pattern_list:
@@ -47,7 +49,7 @@ def join_tables(filename_pattern_list, output_csv_filebase):
             print >> sys.stderr, "*** Error! Cannot open file '" + filename + "'"
             print >> sys.stderr
         else:
-            next_table = attendance_file2table(filename, output_csv_filebase)
+            next_table = attendance_file2table(filename, output_csv_filebase, add_extra_fields)
             if curr_table is not None:
                 curr_table = petl.cat(curr_table, next_table)
             else:
@@ -56,7 +58,7 @@ def join_tables(filename_pattern_list, output_csv_filebase):
     return curr_table
 
 
-def attendance_file2table(filename, output_csv_filebase):
+def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
     global full_name2sk_indiv_id
 
     print '*** Parsing file: ' + filename
@@ -72,12 +74,20 @@ def attendance_file2table(filename, output_csv_filebase):
     event_ids['11:15'] = 3
     event_ids['8'] = 4
 
-    # The following are only needed for reverse mapping to create CSV filenames.
-    event_id_strings = {}
-    event_id_strings[1] = '09am'
-    event_id_strings[2] = '10am'
-    event_id_strings[3] = '11_15am'
-    event_id_strings[4] = '08am'
+    # The following are used to create CSV output filenames and to emit human-readable event name if add_extra_fields
+    # flag is on
+    event_names = {}
+    event_names[1] = '09am'
+    event_names[2] = '10am'
+    event_names[3] = '11_15am'
+    event_names[4] = '08am'
+
+    # Time of event in Excel-parseable format
+    event_times = {}
+    event_times[1] = '09:00 AM'
+    event_times[2] = '10:00 AM'
+    event_times[3] = '11:15 AM'
+    event_times[4] = '08:00 AM'
 
     # Starting state...
     prior_line = None
@@ -156,8 +166,8 @@ def attendance_file2table(filename, output_csv_filebase):
 
             matched_attendance_line = re.search('^ {6}' \
                 + '(?P<full_name>(?P<last_name>[A-Za-z]+([ \-\'][A-Za-z]+)*), ' \
-                    +  '(?P<first_name>[A-Za-z]+([\-\' ][A-Za-z]+)*)( \((?P<nick_name>[A-Za-z]+)\))?\.?)?\r?'
-                + '(?P<phone> +([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted))?' \
+                    +  '(?P<first_name>([A-Za-z]+\.?)+([\-\' ][A-Za-z]+)*)( \((?P<nick_name>[A-Za-z]+)\))?\.?)?\r?'
+                + '(?P<phone>( +)?([0-9]{3}-[0-9]{3}-[0-9]{4}|Unlisted))?' \
                 + '(?P<attendance> +(1 +)+[1-6])?\r?$', line)
             if matched_attendance_line:
                 if matched_attendance_line.group('full_name'):
@@ -198,7 +208,7 @@ def attendance_file2table(filename, output_csv_filebase):
 
     if output_csv_filebase and event_id:
         output_csv_filename = output_csv_filebase + '/' + str(year) + format(month, '02d') + '_' + \
-                              str(event_id_strings[event_id]) + '.csv'
+                              str(event_names[event_id]) + '.csv'
         all_columns_table = petl.fromdicts(attendance_dicts)
         petl.tocsv(all_columns_table, output_csv_filename)
 
@@ -216,7 +226,12 @@ def attendance_file2table(filename, output_csv_filebase):
                     if full_name in full_name2sk_indiv_id:
                         attendance_dict2['sk_indiv_id'] = full_name2sk_indiv_id[full_name]
                         attendance_dict2['date'] = month_sundays[week_index]
+                        attendance_dict2['time'] = event_times[event_id]
                         attendance_dict2['event_id'] = event_id
+                        if add_extra_fields:
+                            attendance_dict2['full_name'] = full_name
+                            attendance_dict2['event_name'] = event_names[event_id]
+                            attendance_dict2['sk_week_num'] = week_index + 1
                         attendance_dicts2.append(attendance_dict2)
                     else:
                         print >> sys.stderr, '*** WARNING! Cannot find "' + full_name + '" in map'
@@ -242,6 +257,12 @@ def attendance_file2table(filename, output_csv_filebase):
                 break
 
     return_table = petl.fromdicts(attendance_dicts2)
+    header = petl.header(return_table)
+    if 'event_name' in header:
+        return_table = petl.cut(return_table, 'date', 'time', 'event_id', 'sk_indiv_id', 'full_name', 'event_name',
+            'sk_week_num')
+    else:
+        return_table = petl.cut(return_table, 'date', 'time', 'event_id', 'sk_indiv_id')
 
     return return_table
 
