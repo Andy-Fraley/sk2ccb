@@ -18,128 +18,50 @@ def main(argv):
         print >> sys.stderr, "Error: cannot open file '" + args.individuals_filename + "'"
         sys.exit(1)
 
-    input_table = petl.fromcsv(args.individuals_filename)
-    transform_pipeline = get_transform_pipeline()
-    output_table = execute_transform_pipeline(transform_pipeline, input_table)
-    petl.tocsv(output_table, args.output_filename)
+    table = petl.fromcsv(args.individuals_filename)
+    table = rename_columns(table)
+
+    # Remove empty dates and dates missing year
+    regex_empty_dates = r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)'
+    table = petl.sub(table, 'birthday', regex_empty_dates, '')
+    table = petl.sub(table, 'deceased', regex_empty_dates, '')
+    table = petl.sub(table, 'anniversary', regex_empty_dates, '')
+    table = petl.sub(table, 'baptized date', regex_empty_dates, '')
+    table = petl.sub(table, 'pq__burial date', regex_empty_dates, '')
+    table = petl.sub(table, 'confirmed date', regex_empty_dates, '')
+    table = petl.sub(table, 'membership date', regex_empty_dates, '')
+    table = petl.sub(table, 'membership stop date', regex_empty_dates, '')
+    table = petl.sub(table, 'pq__guest_followup 1 month', regex_empty_dates, '')
+    table = petl.sub(table, 'pq__guest_followup 1 week', regex_empty_dates, '')
+    table = petl.sub(table, 'pq__guest_followup 2 weeks', regex_empty_dates, '')
+
+    # Remove empty phone numbers
+    regex_empty_phones = r'^\s+\-\s+\-\s+$'
+    table = petl.sub(table, 'cell phone', regex_empty_phones, '')
+    table = petl.sub(table, 'home phone', regex_empty_phones, '')
+    table = petl.sub(table, 'work phone', regex_empty_phones, '')
+
+    # Clones
+    table = petl.addfield(table, 'sync id', lambda rec: rec['individual id'])
+    table = petl.addfield(table, 'mailing street', lambda rec: rec['home street'])
+    table = petl.addfield(table, 'mailing street line 2', lambda rec: rec['home street line 2'])
+    table = petl.addfield(table, 'home_city', lambda rec: rec['city'])
+    table = petl.addfield(table, 'home_state', lambda rec: rec['state'])
+    table = petl.addfield(table, 'home_postal code', lambda rec: rec['postal code'])
+
+    # Simple remaps
+    table = petl.convert(table, 'inactive/remove', {'Yes': '', 'No': 'yes'})
+
+    petl.tocsv(table, args.output_filename)
 
 
-def match_replace(input_values, match_replace_list):
-    output_values = []
-    for value in input_values:
-        for match_replace in match_replace_list:
-            value = re.sub(match_replace[0], match_replace[1], value)
-        output_values.append(value)
-    return output_values
-
-
-def strip_empty_and_incomplete_dates(input_values):
-    return match_replace(input_values, [(r'^\s+/\s+/\s+$', ''), (r'^\d{1,2}/\d{1,2}/\s+$','')])
-
-
-def strip_empty_phone_numbers(input_values):
-    return match_replace(input_values, [(r'^\s+\-\s+\-\s+$', '')])
-
-
-def execute_transform_pipeline(transform_pipeline, input_table):
-    output_table = petl.empty()
-    for transform_node in transform_pipeline:
-        input_column_names = transform_node['input']
-        input_columns = petl.values(input_table, input_column_names)
-        pre_validator = transform_node['pre_validator']
-        if pre_validator:
-            pre_validator(input_columns)
-        transforms = transform_node['transforms']
-        if transforms:
-            prior_output_column = None
-            for transform in transforms:
-                if prior_output_column:
-                    output_column = transform(prior_output_column)
-                else:
-                    output_column = transform(input_columns)
-                prior_output_column = output_column
-        else:
-            if len(input_column_names) == 1:
-                output_column = input_columns
-            else:
-                print >> sys.stderr, "*** Error!  No (reducing) transform(s) specified but more than one input " \
-                    "column"
-                print >> sys.stderr, transform_node
-                sys.exit(1)
-        post_validator = transform_node['post_validator']
-        if post_validator:
-            post_validator(output_column)
-        output_table = petl.addcolumn(output_table, transform_node['output'], output_column)
-    return output_table
-
-
-def reorder_columns(table, pipeline):
-    column_order = [ item['output'] for item in pipeline ]
-    return petl.cut(table, column_order)
-
-
-def get_transform_pipeline():
-    # Note - Output columns are in order of 'output' fields below
-    transform_pipeline = [
-        {
-            'input': ['Individual ID'],
-            'pre_validator': None,
-            'transforms': None,
-            'output': 'individual id',
-            'post_validator': None
-        },
-
-        {
-            'input': ['Family ID'],
-            'pre_validator': None,
-            'transforms': None,
-            'output': 'family id',
-            'post_validator': None
-        },
-
-        {
-            'input': ['Individual ID'],
-            'pre_validator': None,
-            'transforms': None,
-            'output': 'sync id',
-            'post_validator': None
-        },
-
-        {
-            'input': ['Address'],
-            'pre_validator': None,
-            'transforms': None,
-            'output': 'home street',
-            'post_validator': None
-        },
-
-        {
-            'input': ['Birth Date'],
-            'pre_validator': None,
-            'transforms': [strip_empty_and_incomplete_dates],
-            'output': 'birthday',
-            'post_validator': None
-        },
-
-        {
-            'input': ['Cell Phone'],
-            'pre_validator': None,
-            'transforms': [strip_empty_phone_numbers],
-            'output': 'cell phone',
-            'post_validator': None
-        }
-
-    ]
-
-    return transform_pipeline
-
-
-def transform_rename_columns(individuals_input_table):
+def rename_columns(table):
     column_renames = {
+        'Family ID': 'family id',
+        'Individual ID': 'individual id',
+        'Active Profile': 'inactive/remove',
         'Address': 'home street',
-        'Address': 'mailing street',
         'Address Line 2': 'home street line 2',
-        'Address Line 2': 'mailing street line 2',
         'Alt Address': 'other street',  # No such thing as 'other street' in silver_sample file
         'Alt Address Line 2': 'other street line 2',
         'Alt City': 'other city',
@@ -148,12 +70,9 @@ def transform_rename_columns(individuals_input_table):
         'Alt Zip Code': 'other_postal code',
         'Birth Date': 'birthday',
         'Cell Phone': 'cell phone',
-        'City': 'home_city',
         'City': 'city',
         'Country': 'country',
         'Date of Death': 'deceased',
-#        'Emergency Contact': 'emergency contact name',
-#        'Emergency Phone': 'emergency phone',
         'First Name': 'legal name',
         'Gender': 'gender',
         'Home Phone': 'home phone',
@@ -167,20 +86,25 @@ def transform_rename_columns(individuals_input_table):
         'Preferred Name': 'first name',
         'School District': 'school',
         'State': 'state',
-        'State': 'home state',
         'Suffix': 'suffix',
         'Title': 'prefix',
         'Racial/Ethnic identification': 'ethnicity',
         'Relationship': 'family position',
         'Wedding Date': 'anniversary',
         'Work Phone': 'work phone',
-        'Zip Code': 'home_postal code',
         'Zip Code': 'postal code',
+        '1-Month Follow-up': 'pq__guest_followup 1 month',
+        'Wk 1 Follow-up': 'pq__guest_followup 1 week',
+        'Wk 2 Follow-up': 'pq__guest_followup 2 weeks',
         'Env #': 'giving #',
         'The Spirit Mailing': 'spirit mailing',
         'Baptized': 'baptized',
         'Baptized by': 'baptized by',
         'Baptized Date': 'baptized date',
+        'Burial: City, County, St': 'pq__burial city county state',
+        'Burial: Date': 'pq__burial date',
+        'Burial: Officating Pastor': 'pq__burial officiating pastor',
+        'Burial: Site Title': 'pq__burial site title',
         'Church Transferred From': 'church transferred from',
         'Church Transferred To': 'church transferred to',
         'Confirmed': 'confirmed',
@@ -193,8 +117,7 @@ def transform_rename_columns(individuals_input_table):
         'Trf out/Withdrawal Date': 'membership stop date'
     }
 
-    individuals_output_table = petl.rename(individuals_input_table, column_renames)
-    return individuals_output_table
+    return petl.rename(table, column_renames)
 
 
 if __name__ == "__main__":
