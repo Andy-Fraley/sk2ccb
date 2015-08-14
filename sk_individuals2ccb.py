@@ -52,7 +52,46 @@ def main(argv):
     # Simple remaps
     table = petl.convert(table, 'inactive/remove', {'Yes': '', 'No': 'yes'})
 
+    # 
+    table = petl.addfield(table, 'ccb__membership type', xref_member_status2membership_type)
+
     petl.tocsv(table, args.output_filename)
+
+
+def xref_member_status2membership_type(row):
+    re_map = {
+        'Active Member': 'Member - Active',
+        'Inactive Member': 'Member - Inactive',
+        'Regular Attendee': 'Regular Attendee',
+        'Visitor': 'Guest',
+        'Non-Member': xref_how_sourced_donor,
+        'Pastor': 'Pastor',
+        'Deceased - Member': 'Member - Inactive',
+        'Deceased - Non-Member': 'Friend',
+        'None': '',
+        'No Longer Attend': 'Friend',
+        'Transferred out to other UMC': 'Friend',
+        'Transferred out to Non UMC': 'Friend',
+        'Withdrawal': 'Friend',
+        'Charge Conf. Removal': 'Friend',
+        'Archives (Red Book)': '',
+        '': ''  # Had to add this because 'Hudson Community Foundation' has 'Member Status' = '' in SK
+    }
+
+    re_map_value = re_map[row['Member Status']]
+    if callable(re_map_value):
+        value = re_map_value(row)
+    else:
+        value = re_map_value
+
+    return value
+
+
+def xref_how_sourced_donor(row):
+    if row['How Sourced?'][:8] == 'Donation':
+        return 'Donor'
+    else:
+        return 'Friend'
 
 
 def rename_columns(table):
@@ -110,8 +149,8 @@ def rename_columns(table):
         'Confirmed': 'confirmed',
         'Confirmed Date': 'confirmed date',
         'Date Joined': 'membership date',
-        'How Joined': 'how they joined',
-        'Member Status': 'membership type',
+        # 'How Joined': 'how they joined',
+        # 'Member Status': 'membership type',
         'Pastor when joined': 'pastor when joined',
         'Pastor when leaving': 'pastor when leaving',
         'Trf out/Withdrawal Date': 'membership stop date'
