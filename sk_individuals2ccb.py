@@ -6,6 +6,7 @@ import sys, getopt, os.path, csv, argparse, petl, re
 
 def main(argv):
     global xref_member_fields
+    global xref_how_sourced
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
@@ -60,7 +61,7 @@ def main(argv):
     table = petl.convert(table, 'inactive/remove', {'Yes': '', 'No': 'yes'})
     """
 
-    # Do the xref mappings specified in 'XRef - Member Status' tab of mapping spreadsheet
+    # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
     xref_member_fields = get_xref_member_fields()
     table = petl.addfield(table, 'ccb__membership type', get_membership_type)
     table = petl.addfield(table, 'ccb__inactive/remove', get_inactive_remove)
@@ -69,11 +70,53 @@ def main(argv):
     table = petl.addfield(table, 'ccb__membership stop date', get_membership_stop_date)
     table = petl.addfield(table, 'ccb__deceased', get_deceased)
 
+    # Do single xref mapping specified in 'XRef-How Sourced' tab of mapping spreadsheet
+    xref_how_sourced = get_xref_how_sourced()
+    table = petl.addfield(table, 'ccb_how they heard', get_how_they_heard)
+
     petl.tocsv(table, args.output_filename)
 
 
 #######################################################################################################################
-# Membership column XRef remapping behaviors
+# 'XRef-How Sourced' mapping behaviors declaration
+#######################################################################################################################
+
+def get_xref_how_sourced():
+    xref_how_sourced = {
+        'Attendance Roster': '',
+        'Connect Card': '',
+        'Moved to New Family': '',
+        'New Member Class': '',
+        'Acts of God': 'Event: Acts of God',
+        'Vacation Bible School': 'Event: Children',
+        'Donation - Ingomar Living Water': 'Event: Living Water',
+        'Rummage Sale': 'Event: Rummage Sale',
+        'Wellness Ministry': 'Event: Wellness',
+        'Philippi': 'Event: Youth',
+        'Youth Group': 'Event: Youth',
+        'Baptism': 'Other',
+        'Donation - Non-Outreach': 'Other',
+        'Other': 'Other',
+        'Small Group': 'Small Group',
+        '': ''
+    }
+    return xref_how_sourced
+
+
+#######################################################################################################################
+# 'XRef-How Sourced' getters
+#######################################################################################################################
+
+def get_how_they_heard(row):
+    global xref_how_sourced
+
+    value = xref_how_sourced[row['How Sourced?']]
+
+    return value
+
+
+#######################################################################################################################
+# 'XRef-Member Status' mapping behaviors declaration
 #######################################################################################################################
 
 def get_xref_member_fields():
@@ -211,7 +254,7 @@ def get_xref_member_fields():
 
 
 #######################################################################################################################
-# Membership column XRef methods
+# 'XRef-Member Status' getters
 #######################################################################################################################
 
 def get_membership_type(row):
@@ -271,7 +314,7 @@ def get_deceased(row):
 
 
 #######################################################################################################################
-# Membership column XRef functional row utilities
+# 'XRef-Member Status' row utilities
 #######################################################################################################################
 
 def get_sourced_donor(row):
