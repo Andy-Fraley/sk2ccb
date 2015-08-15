@@ -5,6 +5,8 @@ import sys, getopt, os.path, csv, argparse, petl, re
 
 
 def main(argv):
+    global xref_member_fields
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
                         "from Servant Keeper")
@@ -19,6 +21,11 @@ def main(argv):
         sys.exit(1)
 
     table = petl.fromcsv(args.individuals_filename)
+
+    # Drop out all rows in Servant Keeper marked as 'Active Profile' != 'Yes' (i.e. == 'No')
+    # table = petl.select(table, "{Active Profile} == 'Yes'")
+
+    """
     table = rename_columns(table)
 
     # Remove empty dates and dates missing year
@@ -51,48 +58,250 @@ def main(argv):
 
     # Simple remaps
     table = petl.convert(table, 'inactive/remove', {'Yes': '', 'No': 'yes'})
+    """
 
-    # 
-    table = petl.addfield(table, 'ccb__membership type', xref_member_status2membership_type)
+    # Do the xref mappings specified in 'XRef - Member Status' tab of mapping spreadsheet
+    xref_member_fields = get_xref_member_fields()
+    table = petl.addfield(table, 'ccb__membership type', get_membership_type)
+    table = petl.addfield(table, 'ccb__inactive/remove', get_inactive_remove)
+    table = petl.addfield(table, 'ccb__membership date', get_membership_date)
+    table = petl.addfield(table, 'ccb__reason left', get_reason_left)
+    table = petl.addfield(table, 'ccb__membership stop date', get_membership_stop_date)
+    table = petl.addfield(table, 'ccb__deceased', get_deceased)
 
     petl.tocsv(table, args.output_filename)
 
 
-def xref_member_status2membership_type(row):
-    re_map = {
-        'Active Member': 'Member - Active',
-        'Inactive Member': 'Member - Inactive',
-        'Regular Attendee': 'Regular Attendee',
-        'Visitor': 'Guest',
-        'Non-Member': xref_how_sourced_donor,
-        'Pastor': 'Pastor',
-        'Deceased - Member': 'Member - Inactive',
-        'Deceased - Non-Member': 'Friend',
-        'None': '',
-        'No Longer Attend': 'Friend',
-        'Transferred out to other UMC': 'Friend',
-        'Transferred out to Non UMC': 'Friend',
-        'Withdrawal': 'Friend',
-        'Charge Conf. Removal': 'Friend',
-        'Archives (Red Book)': '',
-        '': ''  # Had to add this because 'Hudson Community Foundation' has 'Member Status' = '' in SK
-    }
+#######################################################################################################################
+# Membership column XRef remapping behaviors
+#######################################################################################################################
 
-    re_map_value = re_map[row['Member Status']]
-    if callable(re_map_value):
-        value = re_map_value(row)
-    else:
-        value = re_map_value
+def get_xref_member_fields():
+    xref_member_fields = {
+        'Active Member': {
+            'membership type': 'Member - Active',
+            'inactive/remove': '',
+            'membership date': get_date_joined,
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'Inactive Member': {
+            'membership type': 'Member - Inactive',
+            'inactive/remove': '',
+            'membership date': get_date_joined,
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'Regular Attendee': {
+            'membership type': 'Regular Attendee',
+            'inactive/remove': '',
+            'membership date': '',
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'Visitor': {
+            'membership type': 'Guest',
+            'inactive/remove': '',
+            'membership date': '',
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'Non-Member': {
+            'membership type': get_sourced_donor,
+            'inactive/remove': '',
+            'membership date': '',
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'Pastor': {
+            'membership type': 'Pastor',
+            'inactive/remove': '',
+            'membership date': '',
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'Deceased - Member': {
+            'membership type': 'Member - Inactive',
+            'inactive/remove': 'yes',
+            'membership date': get_date_joined,
+            'reason left': 'Deceased',
+            'membership stop date': '',
+            'deceased': get_date_of_death
+        },
+        'Deceased - Non-Member': {
+            'membership type': 'Friend',
+            'inactive/remove': 'yes',
+            'membership date': '',
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': get_date_of_death
+        },
+        'None': {
+            'membership type': '',
+            'inactive/remove': 'yes',
+            'membership date': '',
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'No Longer Attend': {
+            'membership type': 'Friend',
+            'inactive/remove': '',
+            'membership date': '',
+            'reason left': 'No Longer Attend',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        'Transferred out to other UMC': {
+            'membership type': 'Friend',
+            'inactive/remove': 'yes',
+            'membership date': get_date_joined,
+            'reason left': 'Transferred out to other UMC',
+            'membership stop date': get_trf_out_date,
+            'deceased': ''
+        },
+        'Transferred out to Non UMC': {
+            'membership type': 'Friend',
+            'inactive/remove': 'yes',
+            'membership date': get_date_joined,
+            'reason left': 'Transferred out to Non UMC',
+            'membership stop date': get_trf_out_date,
+            'deceased': ''
+        },
+        'Withdrawal': {
+            'membership type': 'Friend',
+            'inactive/remove': '',
+            'membership date': get_date_joined,
+            'reason left': 'Withdrawal',
+            'membership stop date': get_trf_out_date,
+            'deceased': ''
+        },
+        'Charge Conf. Removal': {
+            'membership type': 'Friend',
+            'inactive/remove': 'yes',
+            'membership date': get_date_joined,
+            'reason left': 'Charge Conf. Removal',
+            'membership stop date': get_trf_out_date,
+            'deceased': ''
+        },
+        'Archives (Red Book)': {
+            'membership type': '',
+            'inactive/remove': 'yes',
+            'membership date': '',
+            'reason left': 'Archives (Red Book)',
+            'membership stop date': '',
+            'deceased': ''
+        },
+        '': {
+            'membership type': '',
+            'inactive/remove': 'yes',
+            'membership date': '',
+            'reason left': '',
+            'membership stop date': '',
+            'deceased': ''
+        }
+    }
+    return xref_member_fields
+
+
+#######################################################################################################################
+# Membership column XRef methods
+#######################################################################################################################
+
+def get_membership_type(row):
+    global xref_member_fields
+
+    value = xref_member_fields[row['Member Status']]['membership type']
+    if callable(value):
+        value = value(row)
 
     return value
 
 
-def xref_how_sourced_donor(row):
+def get_inactive_remove(row):
+    global xref_member_fields
+
+    value = xref_member_fields[row['Member Status']]['inactive/remove']
+
+    return value
+
+
+def get_membership_date(row):
+    global xref_member_fields
+
+    value = xref_member_fields[row['Member Status']]['membership date']
+    if callable(value):
+        value = value(row)
+
+    return value
+
+
+def get_reason_left(row):
+    global xref_member_fields
+
+    value = xref_member_fields[row['Member Status']]['reason left']
+
+    return value
+
+
+def get_membership_stop_date(row):
+    global xref_member_fields
+
+    value = xref_member_fields[row['Member Status']]['membership stop date']
+    if callable(value):
+        value = value(row)
+
+    return value
+
+
+def get_deceased(row):
+    global xref_member_fields
+
+    value = xref_member_fields[row['Member Status']]['deceased']
+    if callable(value):
+        value = value(row)
+
+    return value
+
+
+#######################################################################################################################
+# Membership column XRef functional row utilities
+#######################################################################################################################
+
+def get_sourced_donor(row):
     if row['How Sourced?'][:8] == 'Donation':
         return 'Donor'
     else:
         return 'Friend'
 
+
+def get_date_joined(row):
+    date_joined = row['Date Joined']
+    date_joined = re.sub(r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)', '', date_joined)  # Strip blank or invalid dates
+    return date_joined
+
+
+def get_trf_out_date(row):
+    trf_out_date = row['Trf out/Withdrawal Date']
+    trf_out_date = re.sub(r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)', '', trf_out_date)  # Strip blank or invalid dates
+    return trf_out_date
+
+
+def get_date_of_death(row):
+    date_of_death = row['Date of Death']
+    date_of_death = re.sub(r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)', '', date_of_death)  # Strip blank or invalid dates
+    return date_of_death
+
+
+#######################################################################################################################
+# Straight column rename mapping
+#######################################################################################################################
 
 def rename_columns(table):
     column_renames = {
