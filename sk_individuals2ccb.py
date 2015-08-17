@@ -7,6 +7,7 @@ import sys, getopt, os.path, csv, argparse, petl, re
 def main(argv):
     global xref_member_fields
     global xref_how_sourced
+    global xref_w2s_skills_sgifts
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
@@ -62,19 +63,49 @@ def main(argv):
     """
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
-    xref_member_fields = get_xref_member_fields()
-    table = petl.addfield(table, 'ccb__membership type', get_membership_type)
-    table = petl.addfield(table, 'ccb__inactive/remove', get_inactive_remove)
-    table = petl.addfield(table, 'ccb__membership date', get_membership_date)
-    table = petl.addfield(table, 'ccb__reason left', get_reason_left)
-    table = petl.addfield(table, 'ccb__membership stop date', get_membership_stop_date)
-    table = petl.addfield(table, 'ccb__deceased', get_deceased)
+    # xref_member_fields = get_xref_member_fields()
+    # table = petl.addfield(table, 'ccb__membership type', get_membership_type)
+    # table = petl.addfield(table, 'ccb__inactive/remove', get_inactive_remove)
+    # table = petl.addfield(table, 'ccb__membership date', get_membership_date)
+    # table = petl.addfield(table, 'ccb__reason left', get_reason_left)
+    # table = petl.addfield(table, 'ccb__membership stop date', get_membership_stop_date)
+    # table = petl.addfield(table, 'ccb__deceased', get_deceased)
 
     # Do single xref mapping specified in 'XRef-How Sourced' tab of mapping spreadsheet
-    xref_how_sourced = get_xref_how_sourced()
-    table = petl.addfield(table, 'ccb_how they heard', get_how_they_heard)
+    # xref_how_sourced = get_xref_how_sourced()
+    # table = petl.addfield(table, 'ccb_how they heard', get_how_they_heard)
 
-    petl.tocsv(table, args.output_filename)
+    # Do xref mappings specified in 'XRef-W2S, Skills, SGifts' tab of mapping spreadsheet
+    xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
+    semicolon_sep_fields = {}
+    gather_semicolon_sep_field(semicolon_sep_fields, table, 'Willing to Serve')
+    # gather_semicolon_sep_field(semicolon_sep_fields, table, 'Skills')
+    # gather_semicolon_sep_field(semicolon_sep_fields, table, 'Spiritual Gifts')
+
+    # petl.tocsv(table, args.output_filename)
+
+
+#######################################################################################################################
+# 'XRef-XRef-W2S, Skills, SGifts' semi-colon field gathering
+#######################################################################################################################
+
+def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
+    global xref_w2s_skills_sgifts_mappings
+
+    non_blank_rows = petl.selectisnot(table, field_name, u'')
+    for indiv_id2semi_sep in petl.values(non_blank_rows, 'Individual ID', field_name):
+        print indiv_id2semi_sep
+
+#######################################################################################################################
+# 'XRef-XRef-W2S, Skills, SGifts' field mappings
+#######################################################################################################################
+
+def get_xref_w2s_skills_sgifts():
+    xref_w2s_skills_sgifts_mappings = {
+        ## TODO - FILL OUT
+        'Willing to Serve': ''
+    }
+    return xref_w2s_skills_sgifts
 
 
 #######################################################################################################################
