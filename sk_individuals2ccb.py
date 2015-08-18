@@ -79,8 +79,8 @@ def main(argv):
     xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
     semicolon_sep_fields = {}
     gather_semicolon_sep_field(semicolon_sep_fields, table, 'Willing to Serve')
-    # gather_semicolon_sep_field(semicolon_sep_fields, table, 'Skills')
-    # gather_semicolon_sep_field(semicolon_sep_fields, table, 'Spiritual Gifts')
+    gather_semicolon_sep_field(semicolon_sep_fields, table, 'Skills')
+    gather_semicolon_sep_field(semicolon_sep_fields, table, 'Spiritual Gifts')
 
     # petl.tocsv(table, args.output_filename)
 
@@ -90,11 +90,27 @@ def main(argv):
 #######################################################################################################################
 
 def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
-    global xref_w2s_skills_sgifts_mappings
+    global xref_w2s_skills_sgifts
 
+    if not field_name in xref_w2s_skills_sgifts:
+        print sys.stderr << '*** Unknown Servant Keeper field: ' + field_name
+        sys.exit(1)
     non_blank_rows = petl.selectisnot(table, field_name, u'')
     for indiv_id2semi_sep in petl.values(non_blank_rows, 'Individual ID', field_name):
-        print indiv_id2semi_sep
+        individual_id = indiv_id2semi_sep[0]
+        list_skills_gifts = [x.strip() for x in indiv_id2semi_sep[1].split(';')]
+        #print individual_id
+        #print list_skills_gifts
+        for skill_gift in list_skills_gifts:
+            if skill_gift in xref_w2s_skills_sgifts[field_name]:
+                ccb_area = xref_w2s_skills_sgifts[field_name][skill_gift][0]
+                ccb_flag_to_set = xref_w2s_skills_sgifts[field_name][skill_gift][1]
+                print ccb_area
+                print ccb_flag_to_set
+                print
+                # TODO
+                # Now accumulate into sets instead of printing them out
+
 
 #######################################################################################################################
 # 'XRef-XRef-W2S, Skills, SGifts' field mappings
@@ -102,10 +118,22 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
 
 def get_xref_w2s_skills_sgifts():
     xref_w2s_skills_sgifts_mappings = {
-        ## TODO - FILL OUT
-        'Willing to Serve': ''
+        ## TODO - FILL OUT COMPLETELY
+        'Willing to Serve':
+        {
+            'Acts of God Drama Ministry': ('passions', 'Activity: Drama'),
+            'Bake or Prepare Food': ('abilities', 'Skill: Cooking/Baking')
+        },
+        'Skills':
+        {
+            'Encouragement': ('spiritual gifts', 'Encouragement')
+        },
+        'Spiritual Gifts':
+        {
+            'Encouragement': ('spiritual gifts', 'Apostleship')
+        }
     }
-    return xref_w2s_skills_sgifts
+    return xref_w2s_skills_sgifts_mappings
 
 
 #######################################################################################################################
@@ -272,7 +300,7 @@ def get_xref_member_fields():
             'membership stop date': '',
             'deceased': ''
         },
-        '': {
+        '': {  # Remove this entry...only for Hudson Community Foundation
             'membership type': '',
             'inactive/remove': 'yes',
             'membership date': '',
