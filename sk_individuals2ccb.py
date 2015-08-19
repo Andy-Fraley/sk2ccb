@@ -2,6 +2,7 @@
 
 
 import sys, getopt, os.path, csv, argparse, petl, re
+from collections import namedtuple
 
 
 def main(argv):
@@ -81,6 +82,7 @@ def main(argv):
     gather_semicolon_sep_field(semicolon_sep_fields, table, 'Willing to Serve')
     gather_semicolon_sep_field(semicolon_sep_fields, table, 'Skills')
     gather_semicolon_sep_field(semicolon_sep_fields, table, 'Spiritual Gifts')
+    print semicolon_sep_fields
 
     # petl.tocsv(table, args.output_filename)
 
@@ -99,17 +101,17 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
     for indiv_id2semi_sep in petl.values(non_blank_rows, 'Individual ID', field_name):
         individual_id = indiv_id2semi_sep[0]
         list_skills_gifts = [x.strip() for x in indiv_id2semi_sep[1].split(';')]
-        #print individual_id
-        #print list_skills_gifts
         for skill_gift in list_skills_gifts:
             if skill_gift in xref_w2s_skills_sgifts[field_name]:
                 ccb_area = xref_w2s_skills_sgifts[field_name][skill_gift][0]
                 ccb_flag_to_set = xref_w2s_skills_sgifts[field_name][skill_gift][1]
-                print ccb_area
-                print ccb_flag_to_set
-                print
-                # TODO
-                # Now accumulate into sets instead of printing them out
+                if not individual_id in semicolon_sep_fields:
+                    semicolon_sep_fields[individual_id] = {
+                        'spiritual gifts': set(),
+                        'passions': set(),
+                        'abilities': set()
+                    }
+                semicolon_sep_fields[individual_id][ccb_area].add(ccb_flag_to_set)
 
 
 #######################################################################################################################
@@ -122,7 +124,23 @@ def get_xref_w2s_skills_sgifts():
         'Willing to Serve':
         {
             'Acts of God Drama Ministry': ('passions', 'Activity: Drama'),
-            'Bake or Prepare Food': ('abilities', 'Skill: Cooking/Baking')
+            'Bake or Prepare Food': ('abilities', 'Skill: Cooking/Baking'),
+            'Choir': ('abilities', 'Arts: Vocalist'),
+            'Faith Place': ('passions', 'People: Children'),
+            'High-School Small-Group Facilitator': ('passions', 'People: Young Adults'),
+            'High-School Youth Group Ldr/Chaperone': ('passions', 'People: Young Adults'),
+            'Kids Zone': ('passions', 'People: Children'),
+            'Liturgical Dance Ministry': ('abilities', 'Arts: Dance'),
+            'Middle-School Small-Group Facilitator': ('passions', 'People: Children'),
+            'Middle-School Youth Group Ldr/Chaperone': ('passions', 'People: Children'),
+            'Nursery Helper': ('passions', 'People: Infants/Toddlers'),
+            'Outreach - International - Mission trip': ('passions', 'Activity: Global Missions'),
+            'Outreach - Local - for adults': ('passions', 'Activity: Local Outreach'),
+            'Outreach - Local - for familiies/children': ('passions', 'Activity: Local Outreach'),
+            'Outreach - Local - Mission trip': ('passions', 'Activity: Local Outreach'),
+            'Outreach - U.S. - Mission trip': ('passions', 'Activity: Regional Outreach'),
+            'Vacation Bible School': ('passions', 'People: Children'),
+            'Visit home-bound individuals': ('passions', 'People: Seniors')
         },
         'Skills':
         {
