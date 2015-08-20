@@ -9,6 +9,8 @@ def main(argv):
     global xref_member_fields
     global xref_how_sourced
     global xref_w2s_skills_sgifts
+    global hitmiss_counters
+    global semicolon_sep_fields
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
@@ -79,12 +81,22 @@ def main(argv):
     # Do xref mappings specified in 'XRef-W2S, Skills, SGifts' tab of mapping spreadsheet
     xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
     semicolon_sep_fields = {}
+    init_hitmiss_counters(xref_w2s_skills_sgifts)
     gather_semicolon_sep_field(semicolon_sep_fields, table, 'Willing to Serve')
     gather_semicolon_sep_field(semicolon_sep_fields, table, 'Skills')
     gather_semicolon_sep_field(semicolon_sep_fields, table, 'Spiritual Gifts')
-    print semicolon_sep_fields
+    table = petl.addfield(table, 'ccb__passions', get_gathered_passions)
+    table = petl.addfield(table, 'ccb__abilities', get_gathered_abilities)
+    table = petl.addfield(table, 'ccb__spiritual_gifts', get_gathered_spiritual_gifts)
 
-    # petl.tocsv(table, args.output_filename)
+    # print semicolon_sep_fields
+
+    # print hitmiss_counters
+    # for sk_field in hitmiss_counters:
+    #    for item in hitmiss_counters[sk_field]:
+    #        print >> sys.stderr, sk_field + ';' + item + ';' + str(hitmiss_counters[sk_field][item])
+
+    petl.tocsv(table, args.output_filename)
 
 
 #######################################################################################################################
@@ -95,7 +107,7 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
     global xref_w2s_skills_sgifts
 
     if not field_name in xref_w2s_skills_sgifts:
-        print sys.stderr << '*** Unknown Servant Keeper field: ' + field_name
+        print >> sys.stderr, '*** Unknown Servant Keeper field: ' + field_name
         sys.exit(1)
     non_blank_rows = petl.selectisnot(table, field_name, u'')
     for indiv_id2semi_sep in petl.values(non_blank_rows, 'Individual ID', field_name):
@@ -112,6 +124,9 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
                         'abilities': set()
                     }
                 semicolon_sep_fields[individual_id][ccb_area].add(ccb_flag_to_set)
+                record_hitmiss(field_name, skill_gift, 1)
+            else:
+                record_hitmiss(field_name, skill_gift, -1)
 
 
 #######################################################################################################################
@@ -120,7 +135,6 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
 
 def get_xref_w2s_skills_sgifts():
     xref_w2s_skills_sgifts_mappings = {
-        ## TODO - FILL OUT COMPLETELY
         'Willing to Serve':
         {
             'Acts of God Drama Ministry': ('passions', 'Activity: Drama'),
@@ -144,14 +158,97 @@ def get_xref_w2s_skills_sgifts():
         },
         'Skills':
         {
-            'Encouragement': ('spiritual gifts', 'Encouragement')
+            'Compassion / Listening Skills': ('abilities', 'Skill: Counseling'),
+            'Cooking / Baking': ('abilities', 'Skill: Cooking/Baking'),
+            'Dancer / Choreographer': ('abilities', 'Arts: Dance'),
+            'Drama': ('passions', 'Activity: Drama'),
+            'Encouragement': ('spiritual gifts', 'Encouragement'),
+            'Gardening / Yard Work': ('abilities', 'Skill: Gardening'),
+            'Giving': ('spiritual gifts', 'Giving'),
+            'Information Technology': ('abilities', 'Skill: Tech/Computers'),
+            'Mailing Preparation': ('abilities', 'Skill: Office Admin'),
+            'Organizational Skills': ('abilities', 'Skill: Office Admin'),
+            'Photography / Videography': ('abilities', 'Arts: Video/Photography'),
+            'Prayer': ('spiritual gifts', 'Intercession'),
+            'Sew / Knit / Crochet': ('abilities', 'Arts: Sew/Knit/Crochet'),
+            'Singer': ('abilities', 'Arts: Vocalist'),
+            'Teacher': ('abilities', 'Skill: Education'),
+            'Writer': ('abilities', 'Arts: Writer')
         },
         'Spiritual Gifts':
         {
-            'Encouragement': ('spiritual gifts', 'Apostleship')
+            'Administration': ('spiritual gifts', 'Administration'),
+            'Apostleship': ('spiritual gifts', 'Apostleship'),
+            'Craftsmanship': ('spiritual gifts', 'Craftsmanship'),
+            'Discernment': ('spiritual gifts', 'Discernment'),
+            'Encouragement': ('spiritual gifts', 'Encouragement'),
+            'Evangelism': ('spiritual gifts', 'Evangelism'),
+            'Faith': ('spiritual gifts', 'Faith'),
+            'Giving': ('spiritual gifts', 'Giving'),
+            'Helps': ('spiritual gifts', 'Helps'),
+            'Hospitality': ('spiritual gifts', 'Hospitality'),
+            'Intercession': ('spiritual gifts', 'Intercession'),
+            'Word of Knowledge': ('spiritual gifts', 'Knowledge'),
+            'Leadership': ('spiritual gifts', 'Leadership'),
+            'Mercy': ('spiritual gifts', 'Mercy'),
+            'Prophecy': ('spiritual gifts', 'Prophecy'),
+            'Teaching': ('spiritual gifts', 'Teaching'),
+            'Word of Wisdom': ('spiritual gifts', 'Wisdom')
         }
     }
     return xref_w2s_skills_sgifts_mappings
+
+#######################################################################################################################
+# 'XRef-XRef-W2S, Skills, SGifts' hit-miss helper functions
+#######################################################################################################################
+
+def init_hitmiss_counters(xref_w2s_skills_sgifts_mappings):
+    global hitmiss_counters
+    hitmiss_counters = {}
+    for sk_field in xref_w2s_skills_sgifts_mappings:
+        hitmiss_counters[sk_field] = {}
+        for item in xref_w2s_skills_sgifts_mappings[sk_field]:
+            hitmiss_counters[sk_field][item] = 0
+
+def record_hitmiss(sk_field, item, count):
+    global hitmiss_counters
+    if not sk_field in hitmiss_counters:
+        hitmiss_counters[sk_field] = {}
+    if not item in hitmiss_counters[sk_field]:
+        hitmiss_counters[sk_field][item] = 0
+    hitmiss_counters[sk_field][item] += count
+
+
+#######################################################################################################################
+# 'XRef-XRef-W2S, Skills, SGifts' helper functions to add 'passions', 'abilities', and 'spiritual gifts' fields
+#######################################################################################################################
+
+def get_gathered_passions(row):
+    global semicolon_sep_fields
+
+    indiv_id = row['Individual ID']
+    if indiv_id in semicolon_sep_fields:
+        return ';'.join(semicolon_sep_fields[indiv_id]['passions'])
+    else:
+        return ''
+
+def get_gathered_abilities(row):
+    global semicolon_sep_fields
+
+    indiv_id = row['Individual ID']
+    if indiv_id in semicolon_sep_fields:
+        return ';'.join(semicolon_sep_fields[indiv_id]['abilities'])
+    else:
+        return ''
+
+def get_gathered_spiritual_gifts(row):
+    global semicolon_sep_fields
+
+    indiv_id = row['Individual ID']
+    if indiv_id in semicolon_sep_fields:
+        return ';'.join(semicolon_sep_fields[indiv_id]['spiritual gifts'])
+    else:
+        return ''
 
 
 #######################################################################################################################
