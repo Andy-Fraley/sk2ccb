@@ -66,17 +66,17 @@ def main(argv):
     """
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
-    # xref_member_fields = get_xref_member_fields()
-    # table = petl.addfield(table, 'ccb__membership type', get_membership_type)
-    # table = petl.addfield(table, 'ccb__inactive/remove', get_inactive_remove)
-    # table = petl.addfield(table, 'ccb__membership date', get_membership_date)
-    # table = petl.addfield(table, 'ccb__reason left', get_reason_left)
-    # table = petl.addfield(table, 'ccb__membership stop date', get_membership_stop_date)
-    # table = petl.addfield(table, 'ccb__deceased', get_deceased)
+    xref_member_fields = get_xref_member_fields()
+    table = petl.addfield(table, 'ccb__membership type', get_membership_type)
+    table = petl.addfield(table, 'ccb__inactive/remove', get_inactive_remove)
+    table = petl.addfield(table, 'ccb__membership date', get_membership_date)
+    table = petl.addfield(table, 'ccb__reason left', get_reason_left)
+    table = petl.addfield(table, 'ccb__membership stop date', get_membership_stop_date)
+    table = petl.addfield(table, 'ccb__deceased', get_deceased)
 
     # Do single xref mapping specified in 'XRef-How Sourced' tab of mapping spreadsheet
-    # xref_how_sourced = get_xref_how_sourced()
-    # table = petl.addfield(table, 'ccb_how they heard', get_how_they_heard)
+    xref_how_sourced = get_xref_how_sourced()
+    table = petl.addfield(table, 'ccb_how they heard', get_how_they_heard)
 
     # Do xref mappings specified in 'XRef-W2S, Skills, SGifts' tab of mapping spreadsheet
     xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
