@@ -522,121 +522,183 @@ def get_date_of_death(row):
 # Straight column rename mapping
 #######################################################################################################################
 
-def cut_and_rename_columns(table):
-    # Layout of list_mappings is:
-    # - Emitted (CCB) field name
-    # - Name of renamed SK field ('' if none)
-    # - Converter method (applied after field rename if field originates from SK)
-    # - Comments about field (placed at top of headers in output, followed by blank row, then header row)
-    column_renames = [
-        ('Family ID', 'family id'),
-        ('Individual ID', 'individual id'),
-        ('Relationship', 'family position'),
-        ('Title', 'prefix'),
-        ('Preferred Name', 'first name'),
-        ('Middle Name', 'middle name'),
-        ('Last Name', 'last name'),
-        ('Suffix', 'suffix'),
-        ('First Name', 'legal name'),
-        # -> 'Limited Access User'
-        # -> 'Listed'
-        ('Active Profile', 'inactive/remove'),
-        # -> 'campus'
-        ('Individual e-Mail', 'email'),
-        # -> 'mailing street'
-        # -> 'mailing street line 2'
-        ('City', 'city'),
-        ('State', 'state'),
-        ('Zip Code', 'postal code'),
-        ('Country', 'country'),
-        # -> 'mailing carrier route'
-        ('Address', 'home street'),
-        ('Address Line 2', 'home street line 2'),
-        # -> 'home_city'
-        # -> 'home_state'
-        # -> 'home_city'
-        # -> 'home_postal code'
-        # -> 'area_of_town'
-        # -> 'contact_phone'
-        ('Home Phone', 'home phone'),
-        ('Work Phone', 'work phone'),
-        ('Cell Phone', 'cell phone'),
-        # -> 'service provider'
-        # -> 'fax'
-        # -> 'pager'
-        # -> 'emergency phone'
-        # -> 'emergency contact name'
-        ('Birth Date', 'birthday'),
-        ('Wedding Date', 'anniversary'),
-        ('Gender', 'gender'),
-        ('Env #', 'giving #'),
-        ('Marital Status', 'marital status'),
-        ('Date Joined', 'membership date'),
-        ('Trf out/Withdrawal Date', 'membership stop date'),
-        # -> 'membership type'
-        ('Baptized', 'baptized'),
-        ('Baptized Date', 'baptism date'),
-        ('School District', 'school'),
-        # -> 'school grade'
-        # -> 'known allergies'
-        # -> 'confirmed no allergies'
-        # -> 'notes'  (?)
-        # -> 'approved to work with children'
-        # -> 'approved to work with children stop date'
-        # -> 'commitment date'
-        # -> 'how they heard'
-        # -> 'how they joined'
-        # -> 'reason left church'
-        ('Occupation', 'job title'),
-        # -> 'work street 1'
-        # -> 'work street 2'
-        # -> 'work city'
-        # -> 'work state'
-        # -> 'work postal code'
-        # -> 'Current Story'
-        # -> 'Commitment Story'
-        ('Date of Death', 'deceased'),
-        # -> 'facebook_username'
-        # -> 'twitter_username'
-        # -> 'blog_username'
-        # -> 'website my'
-        # -> 'website work'
-        # -> 'military'
-        # -> 'spiritual_maturity'
-        # -> 'spiritual_gifts'
-        # -> 'passions'
-        # -> 'abilities/skills'
-        # -> 'church_services_I_attend'
-        # -> 'personal_style'
+def convert_family_position(value, row):
+    """Field is remapped as follows:
+    'Head of Household' -> 'Primary contact',
+    'Spouse' -> 'Spouse',
+    'Son' -> 'Child',
+    'Daughter' -> 'Child',
+    <anything_else> -> 'Other'"""
 
-        ('Alt Address', 'other street'),  # No such thing as 'other street' in silver_sample file
+    # TODO
+    return ''
+
+
+def convert_prefix(value, row):
+    """Field is remapped as follows:
+    'Rev.' -> 'Rev.',
+    'Dr.' -> 'Dr.',
+    'Mr.' -> 'Mr.',
+    'Pastor' -> 'Pastor',
+    'Ms.' -> 'Ms.',
+    'Mrs.' -> 'Mrs.',
+    <anything_else> -> ''"""
+
+    # TODO
+    return ''
+
+
+def convert_suffix(value, row):
+    """Field which is remapped as follows:
+    'Jr.' -> 'Jr.',
+    'Sr.' -> 'Sr.',
+    'II' -> 'II',
+    'III' -> 'III',
+    'IV' -> 'IV',
+    'Dr.' -> 'Dr.',
+    <anything_else> -> ''"""
+
+    # TODO
+    return ''
+
+
+def handle_field_mappings(table):
+
+    # Layout of field_mappings list of tuples below is:
+    #
+    # - [0] CCB field name
+    #
+    # - [1] Source Servant Keeper field name or None if not directly 1:1 derived from a Servant Keeper field
+    #
+    # - [2] Converter method (applied after field rename if field originates from Servant Keeper)
+    #
+    # - [3] Custom or process queue field type ('custom-text', 'custom-date', 'custom-pulldown', 'process_queue')
+    #   or None if this is not a custom or process queue data field
+
+    field_ccb_name = 0
+    field_sk_name = 1
+    field_converter_method = 2
+    field_custom_or_process_queue = 3
+
+    sk_fields_renamed = set()
+
+    field_mappings = [
+
+        ('family id', 'Family ID'),
+        ('individual id', 'Individual ID'),
+        ('Relationship', 'family position', convert_family_position),
+        ('prefix', 'Title', convert_prefix),
+        ('first name', 'Preferred Name'),
+        ('middle name', 'Middle Name'),
+        ('last name', 'Last Name'),
+        ('suffix', 'Suffix', convert_suffix),
+        ('legal name', 'First Name'),
+        ('Limited Access User', '', '<limited_access_setting>'),
+        ('Listed', None, convert_listed),
+        ('inactive/remove', 'Active Profile', convert_inactive_remove),
+        ('campus', None, 'Ingomar Church'),
+        ('email', 'Individual e-Mail'),
+        ('mailing street', 'Address'),
+        ('mailing street line 2', 'Address Line 2'),
+        ('city', 'City'),
+        ('state', 'State'),
+        ('postal code', 'Zip Code'),
+        ('country', 'Country'),
+        ('mailing carrier route'),
+        ('home street', 'Address'),
+        ('home street line 2', 'Address Line 2'),
+        ('home_city', 'City'),
+        ('home_state', 'State'),
+        ('home_postal code', 'Zip Code'),
+        ('area_of_town'),
+        ('contact_phone', None, convert_contact_phone),
+        ('Home Phone', 'home phone', convert_phone),
+        ('Work Phone', 'work phone', convert_phone),
+        ('Cell Phone', 'cell phone', convert_phone),
+        ('service provider'),
+        ('fax'),
+        ('pager'),
+        ('emergency phone'),
+        ('emergency contact name'),
+
+        ('Birth Date', 'birthday', convert_date),
+        ('Wedding Date', 'anniversary', convert_date),
+        ('Gender', 'gender', convert_gender),
+        ('Env #', 'giving #'),
+        ('Marital Status', 'marital status', convert_marital_status),
+        ('Date Joined', 'membership date', convert_date),
+        ('Trf out/Withdrawal Date', 'membership stop date', convert_date),
+        ('membership type', None, convert_membership_type),
+        ('Baptized', 'baptized', convert_baptized),
+        ('School District', 'school'),
+        ('school grade'),
+        ('known allergies'),
+        ('confirmed no allergies'),
+        ('notes', None, convert_notes),
+        ('approved to work with children', None, convert_approved_to_work_with_children),
+        ('approved to work with children stop date', None, convert_approved_to_work_with_children_stop_date),
+        ('commitment date'),
+        ('how they heard', None, convert_how_they_heard),
+        ('how they joined', None, convert_how_they_joined),
+        ('reason left church', None, convert_reason_left_church),
+        ('Occupation', 'job title'),
+        ('work street 1'),
+        ('work street 2'),
+        ('work city'),
+        ('work state'),
+        ('work postal code'),
+        ('Current Story'),
+        ('Commitment Story'),
+        ('Date of Death', 'deceased', convert_date),
+        ('facebook_username'),
+        ('twitter_username'),
+        ('blog_username'),
+        ('website my'),
+        ('website work'),
+        ('military'),  # Anything from Carol?
+        ('spiritual_maturity'),
+        ('spiritual_gifts', None, convert_spiritual_gifts),
+        ('passions', None, convert_spiritual_passions),
+        ('abilities/skills', None, convert_abilities_skills),
+        ('church_services_I_attend'),
+        ('personal_style'),
+
+        # No such thing as 'other' address info in silver_sample file, but they're valid fields
+        ('Alt Address', 'other street'),
         ('Alt Address Line 2', 'other street line 2'),
         ('Alt City', 'other city'),
         ('Alt Country', 'other country'),
         ('Alt State', 'other state'),
         ('Alt Zip Code', 'other_postal code'),
-        ('Mail Box #', 'mailbox number'),
 
-        ('1-Month Follow-up', 'pq__guest_followup 1 month'),
-        ('Wk 1 Follow-up', 'pq__guest_followup 1 week'),
-        ('Wk 2 Follow-up', 'pq__guest_followup 2 weeks'),
+        # Guest folloowup process queue
+        ('1-Month Follow-up', 'guest_followup 1 month', None, 'process_queue'),
+        ('Wk 1 Follow-up', 'guest_followup 1 week', None, 'process_queue'),
+        ('Wk 2 Follow-up', 'guest_followup 2 weeks', None, 'process_queue'),
 
-        ('Burial: City, County, St', 'pq__burial city county state'),
-        ('Burial: Date', 'pq__burial date'),
-        ('Burial: Officating Pastor', 'pq__burial officiating pastor'),
-        ('Burial: Site Title', 'pq__burial site title'),
+        # Burial folloowup process queue
+        ('Burial: City, County, St', 'burial city county state', None, 'process_queue'),
+        ('Burial: Date', 'burial date', convert_date, 'process_queue'),
+        ('Burial: Officating Pastor', 'burial officiating pastor', None, 'process_queue'),
+        ('Burial: Site Title', 'burial site title', None, 'process_queue'),
 
-        ('Photo Release', 'photo release'),
-        ('Racial/Ethnic identification', 'ethnicity'),
-        ('The Spirit Mailing', 'spirit mailing'),
-        ('Baptized by', 'baptized by'),
-        ('Church Transferred From', 'church transferred from'),
-        ('Church Transferred To', 'church transferred to'),
-        ('Confirmed', 'confirmed'),
-        ('Confirmed Date', 'confirmed date'),
-        ('Pastor when joined', 'pastor when joined'),
-        ('Pastor when leaving', 'pastor when leaving')
+        # Custom fields
+        ('Baptized Date', 'baptism date', convert_date, 'custom-pulldown'),
+        ('Baptized by', 'baptized by', None, 'custom-pulldown'),
+        ('Confirmed Date', 'confirmed date', convert_date, 'custom-date'),
+        ('Confirmed', 'confirmed', convert_confirmed, 'custom-pulldown'),
+        ('Mail Box #', 'mailbox number', None, 'custom-text'),
+        ('The Spirit Mailing', 'spirit mailing', convert_spirit_mailing, 'custom-pulldown'),
+        ('Photo Release', 'photo release', convert_photo_release, 'custom-pulldown'),
+        ('Racial/Ethnic identification', 'ethnicity', convert_ethnicity, 'custom-pulldown'),
+        ('Church Transferred From', 'church transferred from', None, 'custom-text'),
+        ('Church Transferred To', 'church transferred to', None, 'custom-text'),
+        ('Pastor when joined', 'pastor when joined', None, 'custom-text'),
+        ('Pastor when leaving', 'pastor when leaving', None, 'custom-text')
     ]
+
+    # TODO - Rewrite logic to walk structure above (keep track of SK fields used so on 2nd hit, don't rename field,
+    # clone field instead).  Also make sure to somehow stash columns used by xref mappers
 
     cut_keys = [tuple[0] for tuple in column_renames]
     rename_dict = {tuple[0]: tuple[1] for tuple in column_renames}
