@@ -25,69 +25,68 @@ def main(argv):
         print >> sys.stderr, "Error: cannot open file '" + args.individuals_filename + "'"
         sys.exit(1)
 
-    table = petl.fromcsv(args.individuals_filename)
+    table_sk = petl.fromcsv(args.individuals_filename)
 
     # Drop out all rows in Servant Keeper marked as 'Active Profile' != 'Yes' (i.e. == 'No')
     # table = petl.select(table, "{Active Profile} == 'Yes'")
 
-    """
-    table = rename_columns(table)
+    table_ccb = cut_and_rename_columns(table_sk)
 
     # Remove empty dates and dates missing year
     regex_empty_dates = r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)'
-    table = petl.sub(table, 'birthday', regex_empty_dates, '')
-    table = petl.sub(table, 'deceased', regex_empty_dates, '')
-    table = petl.sub(table, 'anniversary', regex_empty_dates, '')
-    table = petl.sub(table, 'baptized date', regex_empty_dates, '')
-    table = petl.sub(table, 'pq__burial date', regex_empty_dates, '')
-    table = petl.sub(table, 'confirmed date', regex_empty_dates, '')
-    table = petl.sub(table, 'membership date', regex_empty_dates, '')
-    table = petl.sub(table, 'membership stop date', regex_empty_dates, '')
-    table = petl.sub(table, 'pq__guest_followup 1 month', regex_empty_dates, '')
-    table = petl.sub(table, 'pq__guest_followup 1 week', regex_empty_dates, '')
-    table = petl.sub(table, 'pq__guest_followup 2 weeks', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'birthday', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'deceased', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'anniversary', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'baptism date', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'pq__burial date', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'confirmed date', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'membership date', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'membership stop date', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 month', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 week', regex_empty_dates, '')
+    table_ccb = petl.sub(table_ccb, 'pq__guest_followup 2 weeks', regex_empty_dates, '')
 
     # Remove empty phone numbers
     regex_empty_phones = r'^\s+\-\s+\-\s+$'
-    table = petl.sub(table, 'cell phone', regex_empty_phones, '')
-    table = petl.sub(table, 'home phone', regex_empty_phones, '')
-    table = petl.sub(table, 'work phone', regex_empty_phones, '')
+    table_ccb = petl.sub(table_ccb, 'cell phone', regex_empty_phones, '')
+    table_ccb = petl.sub(table_ccb, 'home phone', regex_empty_phones, '')
+    table_ccb = petl.sub(table_ccb, 'work phone', regex_empty_phones, '')
 
     # Clones
-    table = petl.addfield(table, 'sync id', lambda rec: rec['individual id'])
-    table = petl.addfield(table, 'mailing street', lambda rec: rec['home street'])
-    table = petl.addfield(table, 'mailing street line 2', lambda rec: rec['home street line 2'])
-    table = petl.addfield(table, 'home_city', lambda rec: rec['city'])
-    table = petl.addfield(table, 'home_state', lambda rec: rec['state'])
-    table = petl.addfield(table, 'home_postal code', lambda rec: rec['postal code'])
+    # TODO, use 'index=' to place these new columns at right locations (using 'add_after' helper?)
+    table_ccb = petl.addfield(table_ccb, 'sync id', lambda rec: rec['individual id'])
+    table_ccb = petl.addfield(table_ccb, 'mailing street', lambda rec: rec['home street'])
+    table_ccb = petl.addfield(table_ccb, 'mailing street line 2', lambda rec: rec['home street line 2'])
+    table_ccb = petl.addfield(table_ccb, 'home_city', lambda rec: rec['city'])
+    table_ccb = petl.addfield(table_ccb, 'home_state', lambda rec: rec['state'])
+    table_ccb = petl.addfield(table_ccb, 'home_postal code', lambda rec: rec['postal code'])
 
     # Simple remaps
-    table = petl.convert(table, 'inactive/remove', {'Yes': '', 'No': 'yes'})
-    """
+    table_ccb = petl.convert(table_ccb, 'inactive/remove', {'Yes': '', 'No': 'yes'})
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
     xref_member_fields = get_xref_member_fields()
-    table = petl.addfield(table, 'ccb__membership type', get_membership_type)
-    table = petl.addfield(table, 'ccb__inactive/remove', get_inactive_remove)
-    table = petl.addfield(table, 'ccb__membership date', get_membership_date)
-    table = petl.addfield(table, 'ccb__reason left', get_reason_left)
-    table = petl.addfield(table, 'ccb__membership stop date', get_membership_stop_date)
-    table = petl.addfield(table, 'ccb__deceased', get_deceased)
+    table_tmp = petl.addfield(table_sk, 'ccb__membership type', get_membership_type)
+    table_tmp = petl.addfield(table_tmp, 'ccb__inactive/remove', get_inactive_remove)
+    table_tmp = petl.addfield(table_tmp, 'ccb__membership date', get_membership_date)
+    table_tmp = petl.addfield(table_tmp, 'ccb__reason left', get_reason_left)
+    table_tmp = petl.addfield(table_tmp, 'ccb__membership stop date', get_membership_stop_date)
+    table_tmp = petl.addfield(table_tmp, 'ccb__deceased', get_deceased)
 
     # Do single xref mapping specified in 'XRef-How Sourced' tab of mapping spreadsheet
     xref_how_sourced = get_xref_how_sourced()
-    table = petl.addfield(table, 'ccb_how they heard', get_how_they_heard)
+    table_tmp = petl.addfield(table_tmp, 'ccb_how they heard', get_how_they_heard)
 
     # Do xref mappings specified in 'XRef-W2S, Skills, SGifts' tab of mapping spreadsheet
     xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
     semicolon_sep_fields = {}
     init_hitmiss_counters(xref_w2s_skills_sgifts)
-    gather_semicolon_sep_field(semicolon_sep_fields, table, 'Willing to Serve')
-    gather_semicolon_sep_field(semicolon_sep_fields, table, 'Skills')
-    gather_semicolon_sep_field(semicolon_sep_fields, table, 'Spiritual Gifts')
-    table = petl.addfield(table, 'ccb__passions', get_gathered_passions)
-    table = petl.addfield(table, 'ccb__abilities', get_gathered_abilities)
-    table = petl.addfield(table, 'ccb__spiritual_gifts', get_gathered_spiritual_gifts)
+    gather_semicolon_sep_field(semicolon_sep_fields, table_tmp, 'Willing to Serve')
+    gather_semicolon_sep_field(semicolon_sep_fields, table_tmp, 'Skills')
+    gather_semicolon_sep_field(semicolon_sep_fields, table_tmp, 'Spiritual Gifts')
+    table_tmp = petl.addfield(table_tmp, 'ccb__passions', get_gathered_passions)
+    table_tmp = petl.addfield(table_tmp, 'ccb__abilities', get_gathered_abilities)
+    table_tmp = petl.addfield(table_tmp, 'ccb__spiritual_gifts', get_gathered_spiritual_gifts)
 
     # print semicolon_sep_fields
 
@@ -96,7 +95,10 @@ def main(argv):
     #    for item in hitmiss_counters[sk_field]:
     #        print >> sys.stderr, sk_field + ';' + item + ';' + str(hitmiss_counters[sk_field][item])
 
-    petl.tocsv(table, args.output_filename)
+    # petl.tocsv(table, args.output_filename)
+
+    print table_ccb
+    print table_tmp
 
 
 #######################################################################################################################
@@ -520,69 +522,128 @@ def get_date_of_death(row):
 # Straight column rename mapping
 #######################################################################################################################
 
-def rename_columns(table):
-    column_renames = {
-        'Family ID': 'family id',
-        'Individual ID': 'individual id',
-        'Active Profile': 'inactive/remove',
-        'Address': 'home street',
-        'Address Line 2': 'home street line 2',
-        'Alt Address': 'other street',  # No such thing as 'other street' in silver_sample file
-        'Alt Address Line 2': 'other street line 2',
-        'Alt City': 'other city',
-        'Alt Country': 'other country',
-        'Alt State': 'other state',
-        'Alt Zip Code': 'other_postal code',
-        'Birth Date': 'birthday',
-        'Cell Phone': 'cell phone',
-        'City': 'city',
-        'Country': 'country',
-        'Date of Death': 'deceased',
-        'First Name': 'legal name',
-        'Gender': 'gender',
-        'Home Phone': 'home phone',
-        'Individual e-Mail': 'email',
-        'Last Name': 'last name',
-        'Mail Box #': 'mailbox number',
-        'Marital Status': 'marital status',
-        'Middle Name': 'middle name',
-        'Occupation': 'job title',
-        'Photo Release': 'photo release',
-        'Preferred Name': 'first name',
-        'School District': 'school',
-        'State': 'state',
-        'Suffix': 'suffix',
-        'Title': 'prefix',
-        'Racial/Ethnic identification': 'ethnicity',
-        'Relationship': 'family position',
-        'Wedding Date': 'anniversary',
-        'Work Phone': 'work phone',
-        'Zip Code': 'postal code',
-        '1-Month Follow-up': 'pq__guest_followup 1 month',
-        'Wk 1 Follow-up': 'pq__guest_followup 1 week',
-        'Wk 2 Follow-up': 'pq__guest_followup 2 weeks',
-        'Env #': 'giving #',
-        'The Spirit Mailing': 'spirit mailing',
-        'Baptized': 'baptized',
-        'Baptized by': 'baptized by',
-        'Baptized Date': 'baptized date',
-        'Burial: City, County, St': 'pq__burial city county state',
-        'Burial: Date': 'pq__burial date',
-        'Burial: Officating Pastor': 'pq__burial officiating pastor',
-        'Burial: Site Title': 'pq__burial site title',
-        'Church Transferred From': 'church transferred from',
-        'Church Transferred To': 'church transferred to',
-        'Confirmed': 'confirmed',
-        'Confirmed Date': 'confirmed date',
-        'Date Joined': 'membership date',
-        # 'How Joined': 'how they joined',
-        # 'Member Status': 'membership type',
-        'Pastor when joined': 'pastor when joined',
-        'Pastor when leaving': 'pastor when leaving',
-        'Trf out/Withdrawal Date': 'membership stop date'
-    }
+def cut_and_rename_columns(table):
+    # Layout of list_mappings is:
+    # - Emitted (CCB) field name
+    # - Name of renamed SK field ('' if none)
+    # - Converter method (applied after field rename if field originates from SK)
+    # - Comments about field (placed at top of headers in output, followed by blank row, then header row)
+    column_renames = [
+        ('Family ID', 'family id'),
+        ('Individual ID', 'individual id'),
+        ('Relationship', 'family position'),
+        ('Title', 'prefix'),
+        ('Preferred Name', 'first name'),
+        ('Middle Name', 'middle name'),
+        ('Last Name', 'last name'),
+        ('Suffix', 'suffix'),
+        ('First Name', 'legal name'),
+        # -> 'Limited Access User'
+        # -> 'Listed'
+        ('Active Profile', 'inactive/remove'),
+        # -> 'campus'
+        ('Individual e-Mail', 'email'),
+        # -> 'mailing street'
+        # -> 'mailing street line 2'
+        ('City', 'city'),
+        ('State', 'state'),
+        ('Zip Code', 'postal code'),
+        ('Country', 'country'),
+        # -> 'mailing carrier route'
+        ('Address', 'home street'),
+        ('Address Line 2', 'home street line 2'),
+        # -> 'home_city'
+        # -> 'home_state'
+        # -> 'home_city'
+        # -> 'home_postal code'
+        # -> 'area_of_town'
+        # -> 'contact_phone'
+        ('Home Phone', 'home phone'),
+        ('Work Phone', 'work phone'),
+        ('Cell Phone', 'cell phone'),
+        # -> 'service provider'
+        # -> 'fax'
+        # -> 'pager'
+        # -> 'emergency phone'
+        # -> 'emergency contact name'
+        ('Birth Date', 'birthday'),
+        ('Wedding Date', 'anniversary'),
+        ('Gender', 'gender'),
+        ('Env #', 'giving #'),
+        ('Marital Status', 'marital status'),
+        ('Date Joined', 'membership date'),
+        ('Trf out/Withdrawal Date', 'membership stop date'),
+        # -> 'membership type'
+        ('Baptized', 'baptized'),
+        ('Baptized Date', 'baptism date'),
+        ('School District', 'school'),
+        # -> 'school grade'
+        # -> 'known allergies'
+        # -> 'confirmed no allergies'
+        # -> 'notes'  (?)
+        # -> 'approved to work with children'
+        # -> 'approved to work with children stop date'
+        # -> 'commitment date'
+        # -> 'how they heard'
+        # -> 'how they joined'
+        # -> 'reason left church'
+        ('Occupation', 'job title'),
+        # -> 'work street 1'
+        # -> 'work street 2'
+        # -> 'work city'
+        # -> 'work state'
+        # -> 'work postal code'
+        # -> 'Current Story'
+        # -> 'Commitment Story'
+        ('Date of Death', 'deceased'),
+        # -> 'facebook_username'
+        # -> 'twitter_username'
+        # -> 'blog_username'
+        # -> 'website my'
+        # -> 'website work'
+        # -> 'military'
+        # -> 'spiritual_maturity'
+        # -> 'spiritual_gifts'
+        # -> 'passions'
+        # -> 'abilities/skills'
+        # -> 'church_services_I_attend'
+        # -> 'personal_style'
 
-    return petl.rename(table, column_renames)
+        ('Alt Address', 'other street'),  # No such thing as 'other street' in silver_sample file
+        ('Alt Address Line 2', 'other street line 2'),
+        ('Alt City', 'other city'),
+        ('Alt Country', 'other country'),
+        ('Alt State', 'other state'),
+        ('Alt Zip Code', 'other_postal code'),
+        ('Mail Box #', 'mailbox number'),
+
+        ('1-Month Follow-up', 'pq__guest_followup 1 month'),
+        ('Wk 1 Follow-up', 'pq__guest_followup 1 week'),
+        ('Wk 2 Follow-up', 'pq__guest_followup 2 weeks'),
+
+        ('Burial: City, County, St', 'pq__burial city county state'),
+        ('Burial: Date', 'pq__burial date'),
+        ('Burial: Officating Pastor', 'pq__burial officiating pastor'),
+        ('Burial: Site Title', 'pq__burial site title'),
+
+        ('Photo Release', 'photo release'),
+        ('Racial/Ethnic identification', 'ethnicity'),
+        ('The Spirit Mailing', 'spirit mailing'),
+        ('Baptized by', 'baptized by'),
+        ('Church Transferred From', 'church transferred from'),
+        ('Church Transferred To', 'church transferred to'),
+        ('Confirmed', 'confirmed'),
+        ('Confirmed Date', 'confirmed date'),
+        ('Pastor when joined', 'pastor when joined'),
+        ('Pastor when leaving', 'pastor when leaving')
+    ]
+
+    cut_keys = [tuple[0] for tuple in column_renames]
+    rename_dict = {tuple[0]: tuple[1] for tuple in column_renames}
+
+    table_ccb_columns = petl.cut(table, cut_keys)
+
+    return petl.rename(table_ccb_columns, rename_dict)
 
 
 if __name__ == "__main__":
