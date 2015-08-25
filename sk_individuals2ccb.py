@@ -584,9 +584,10 @@ def handle_field_mappings(table):
 
     field_mappings = [
 
+        # Core (silver sample.xls) columns
         ('family id', 'Family ID'),
         ('individual id', 'Individual ID'),
-        ('Relationship', 'family position', convert_family_position),
+        ('family position', 'Relationship', convert_family_position),
         ('prefix', 'Title', convert_prefix),
         ('first name', 'Preferred Name'),
         ('middle name', 'Middle Name'),
@@ -612,25 +613,24 @@ def handle_field_mappings(table):
         ('home_postal code', 'Zip Code'),
         ('area_of_town'),
         ('contact_phone', None, convert_contact_phone),
-        ('Home Phone', 'home phone', convert_phone),
-        ('Work Phone', 'work phone', convert_phone),
-        ('Cell Phone', 'cell phone', convert_phone),
+        ('home phone', 'Home Phone', convert_phone),
+        ('work phone', 'Work Phone', convert_phone),
+        ('cell phone', 'Cell Phone', convert_phone),
         ('service provider'),
         ('fax'),
         ('pager'),
         ('emergency phone'),
         ('emergency contact name'),
-
-        ('Birth Date', 'birthday', convert_date),
-        ('Wedding Date', 'anniversary', convert_date),
-        ('Gender', 'gender', convert_gender),
-        ('Env #', 'giving #'),
-        ('Marital Status', 'marital status', convert_marital_status),
-        ('Date Joined', 'membership date', convert_date),
-        ('Trf out/Withdrawal Date', 'membership stop date', convert_date),
+        ('birthday', 'Birth Date', convert_date),
+        ('anniversary', 'Wedding Date', convert_date),
+        ('gender', 'Gender', convert_gender),
+        ('giving #', 'Env #'),
+        ('marital status', 'Marital Status', convert_marital_status),
+        ('membership date', 'Date Joined', convert_date),
+        ('membership stop date', 'Trf out/Withdrawal Date', convert_date),
         ('membership type', None, convert_membership_type),
-        ('Baptized', 'baptized', convert_baptized),
-        ('School District', 'school'),
+        ('baptized', 'Baptized', convert_baptized),
+        ('school', 'School District'),
         ('school grade'),
         ('known allergies'),
         ('confirmed no allergies'),
@@ -641,7 +641,7 @@ def handle_field_mappings(table):
         ('how they heard', None, convert_how_they_heard),
         ('how they joined', None, convert_how_they_joined),
         ('reason left church', None, convert_reason_left_church),
-        ('Occupation', 'job title'),
+        ('job title', 'Occupation'),
         ('work street 1'),
         ('work street 2'),
         ('work city'),
@@ -649,7 +649,7 @@ def handle_field_mappings(table):
         ('work postal code'),
         ('Current Story'),
         ('Commitment Story'),
-        ('Date of Death', 'deceased', convert_date),
+        ('deceased', 'Date of Death', convert_date),
         ('facebook_username'),
         ('twitter_username'),
         ('blog_username'),
@@ -664,38 +664,56 @@ def handle_field_mappings(table):
         ('personal_style'),
 
         # No such thing as 'other' address info in silver_sample file, but they're valid fields
-        ('Alt Address', 'other street'),
-        ('Alt Address Line 2', 'other street line 2'),
-        ('Alt City', 'other city'),
-        ('Alt Country', 'other country'),
-        ('Alt State', 'other state'),
-        ('Alt Zip Code', 'other_postal code'),
+        ('other street', 'Alt Address'),
+        ('other street line 2', 'Alt Address Line 2'),
+        ('other city', 'Alt City'),
+        ('other country', 'Alt Country'),
+        ('other state', 'Alt State'),
+        ('other_postal code', 'Alt Zip Code'),
 
         # Guest folloowup process queue
-        ('1-Month Follow-up', 'guest_followup 1 month', None, 'process_queue'),
-        ('Wk 1 Follow-up', 'guest_followup 1 week', None, 'process_queue'),
-        ('Wk 2 Follow-up', 'guest_followup 2 weeks', None, 'process_queue'),
+        ('guest_followup 1 month', '1-Month Follow-up', None, 'process_queue'),
+        ('guest_followup 1 week', 'Wk 1 Follow-up', None, 'process_queue'),
+        ('guest_followup 2 weeks', 'Wk 2 Follow-up', None, 'process_queue'),
 
         # Burial folloowup process queue
-        ('Burial: City, County, St', 'burial city county state', None, 'process_queue'),
-        ('Burial: Date', 'burial date', convert_date, 'process_queue'),
-        ('Burial: Officating Pastor', 'burial officiating pastor', None, 'process_queue'),
-        ('Burial: Site Title', 'burial site title', None, 'process_queue'),
+        ('burial city county state', 'Burial: City, County, St', None, 'process_queue'),
+        ('burial date', 'Burial: Date', convert_date, 'process_queue'),
+        ('burial officiating pastor', 'Burial: Officating Pastor', None, 'process_queue'),
+        ('burial site title', 'Burial: Site Title', None, 'process_queue'),
 
         # Custom fields
-        ('Baptized Date', 'baptism date', convert_date, 'custom-pulldown'),
-        ('Baptized by', 'baptized by', None, 'custom-pulldown'),
-        ('Confirmed Date', 'confirmed date', convert_date, 'custom-date'),
-        ('Confirmed', 'confirmed', convert_confirmed, 'custom-pulldown'),
-        ('Mail Box #', 'mailbox number', None, 'custom-text'),
-        ('The Spirit Mailing', 'spirit mailing', convert_spirit_mailing, 'custom-pulldown'),
-        ('Photo Release', 'photo release', convert_photo_release, 'custom-pulldown'),
-        ('Racial/Ethnic identification', 'ethnicity', convert_ethnicity, 'custom-pulldown'),
-        ('Church Transferred From', 'church transferred from', None, 'custom-text'),
-        ('Church Transferred To', 'church transferred to', None, 'custom-text'),
-        ('Pastor when joined', 'pastor when joined', None, 'custom-text'),
-        ('Pastor when leaving', 'pastor when leaving', None, 'custom-text')
+        ('baptism date', 'Baptized Date', convert_date, 'custom-pulldown'),
+        ('baptized by', 'Baptized by', None, 'custom-pulldown'),
+        ('confirmed date', 'Confirmed Date', convert_date, 'custom-date'),
+        ('confirmed', 'Confirmed', convert_confirmed, 'custom-pulldown'),
+        ('mailbox number', 'Mail Box #', None, 'custom-text'),
+        ('spirit mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'),
+        ('photo release', 'Photo Release', convert_photo_release, 'custom-pulldown'),
+        ('ethnicity', 'Racial/Ethnic identification', convert_ethnicity, 'custom-pulldown'),
+        ('church transferred from', 'Church Transferred From', None, 'custom-text'),
+        ('church transferred to', 'Church Transferred To', None, 'custom-text'),
+        ('pastor when joined', 'Pastor when joined', None, 'custom-text'),
+        ('pastor when leaving', 'Pastor when leaving', None, 'custom-text')
     ]
+
+    num_sk_columns = len(petl.header(table))
+    for field_map_tuple in field_mappings:
+        if len(field_map_tuple) == 1:  # Add empty CCB placeholder column with no data to populate it
+            table = add_empty_column(table, field_map_tuple[field_ccb_name])
+        elif len(field_map_tuple) == 2:  # Add cloned and renamed column
+            table = add_cloned_column(table, field_map_tuple[field_ccb_name], field_map_tuple[field_sk_name])
+        elif len(field_map_tuple) == 3:  # Add empty or cloned/renamed column and run it through converter method
+            if field_map_tuple[field_sk_name] is None:  # No source SK column specified, convert empty new column
+                assert field_map_tuple[field_converter_method] is not None
+                table = add_empty_column_then_convert(table, field_map_tuple[field_ccb_name],
+                    field_map_tuple[field_converter_method])
+                else:  # Source SK column is specified, clone it and convert
+                    table = add_cloned_column_then_convert(table, field_map_tuple[field_ccb_name],
+                        field_map_tuple[field_sk_name], field_map_tuple[field_converter_method])
+        elif len(field_map_tuple) == 4:  #
+            pass
+
 
     # TODO - Rewrite logic to walk structure above (keep track of SK fields used so on 2nd hit, don't rename field,
     # clone field instead).  Also make sure to somehow stash columns used by xref mappers
