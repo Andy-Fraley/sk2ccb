@@ -13,6 +13,7 @@ class g:
     hitmiss_counters = None
     semicolon_sep_fields = None
     header_comments = None
+    args = None
 
 
 def main(argv):
@@ -21,18 +22,20 @@ def main(argv):
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
-                        "from Servant Keeper")
+        "from Servant Keeper")
     parser.add_argument("--child-approvals-filename", required=True, help="Filename of CSV file listing approval " \
-                        "dates that individuals got various clearances to work with children")
+        "dates that individuals got various clearances to work with children")
     parser.add_argument("--output-filename", required=True, help="Output CSV filename which will be loaded with " \
-                        "individuals data in CCB import format ")
-    args = parser.parse_args()
+        "individuals data in CCB import format ")
+    parser.add_argument('--trace', action='store_true', help="If specified, prints to stdout as new columns are "
+        "added")
+    g.args = parser.parse_args()
 
-    if not os.path.isfile(args.individuals_filename):
-        print >> sys.stderr, "Error: cannot open file '" + args.individuals_filename + "'"
+    if not os.path.isfile(g.args.individuals_filename):
+        print >> sys.stderr, "Error: cannot open file '" + g.args.individuals_filename + "'"
         sys.exit(1)
 
-    table_sk = petl.fromcsv(args.individuals_filename)
+    table_sk = petl.fromcsv(g.args.individuals_filename)
 
     # Drop out all rows in Servant Keeper marked as 'Active Profile' != 'Yes' (i.e. == 'No')
     # table = petl.select(table, "{Active Profile} == 'Yes'")
@@ -101,6 +104,7 @@ def main(argv):
     #        print >> sys.stderr, sk_field + ';' + item + ';' + str(hitmiss_counters[sk_field][item])
 
     table_ccb = handle_field_mappings(table_sk)
+
     print g.header_comments
 
     # petl.tocsv(table, args.output_filename)
@@ -704,150 +708,167 @@ def handle_field_mappings(table):
     field_mappings = [
 
         # Core (silver sample.xls) columns
-        ('family id', 'Family ID'),
-        ('individual id', 'Individual ID'),
-        ('family position', 'Relationship', convert_family_position),
-        ('prefix', 'Title', convert_prefix),
-        ('first name', 'Preferred Name'),
-        ('middle name', 'Middle Name'),
-        ('last name', 'Last Name'),
-        ('suffix', 'Suffix', convert_suffix),
-        ('legal name', 'First Name'),
-        ('Limited Access User', '', '<limited_access_setting>'),
-        ('Listed', None, convert_listed),
-        ('inactive/remove', 'Active Profile', convert_inactive_remove),
-        ('campus', None, 'Ingomar Church'),
-        ('email', 'Individual e-Mail'),
-        ('mailing street', 'Address'),
-        ('mailing street line 2', 'Address Line 2'),
-        ('city', 'City'),
-        ('state', 'State'),
-        ('postal code', 'Zip Code'),
-        ('country', 'Country'),
-        ('mailing carrier route'),
-        ('home street', 'Address'),
-        ('home street line 2', 'Address Line 2'),
-        ('home_city', 'City'),
-        ('home_state', 'State'),
-        ('home_postal code', 'Zip Code'),
-        ('area_of_town'),
-        ('contact_phone', None, convert_contact_phone),
-        ('home phone', 'Home Phone', convert_phone),
-        ('work phone', 'Work Phone', convert_phone),
-        ('cell phone', 'Cell Phone', convert_phone),
-        ('service provider'),
-        ('fax'),
-        ('pager'),
-        ('emergency phone'),
-        ('emergency contact name'),
-        ('birthday', 'Birth Date', convert_date),
-        ('anniversary', 'Wedding Date', convert_date),
-        ('gender', 'Gender', convert_gender),
-        ('giving #', 'Env #'),
-        ('marital status', 'Marital Status', convert_marital_status),
-        ('membership date', 'Date Joined', convert_date),
-        ('membership stop date', 'Trf out/Withdrawal Date', convert_date),
-        ('membership type', None, convert_membership_type),
-        ('baptized', 'Baptized', convert_baptized),
-        ('school', 'School District'),
-        ('school grade'),
-        ('known allergies'),
-        ('confirmed no allergies'),
-        ('notes', None, convert_notes),
-        ('approved to work with children', None, convert_approved_to_work_with_children),
-        ('approved to work with children stop date', None, convert_approved_to_work_with_children_stop_date),
-        ('commitment date'),
-        ('how they heard', None, convert_how_they_heard),
-        ('how they joined', None, convert_how_they_joined),
-        ('reason left church', None, convert_reason_left_church),
-        ('job title', 'Occupation'),
-        ('work street 1'),
-        ('work street 2'),
-        ('work city'),
-        ('work state'),
-        ('work postal code'),
-        ('Current Story'),
-        ('Commitment Story'),
-        ('deceased', 'Date of Death', convert_date),
-        ('facebook_username'),
-        ('twitter_username'),
-        ('blog_username'),
-        ('website my'),
-        ('website work'),
-        ('military'),  # Anything from Carol?
-        ('spiritual_maturity'),
-        ('spiritual_gifts', None, convert_spiritual_gifts),
-        ('passions', None, convert_passions),
-        ('abilities/skills', None, convert_abilities_skills),
-        ('church_services_I_attend'),
-        ('personal_style'),
+        ['family id', 'Family ID'],
+        ['individual id', 'Individual ID'],
+        ['family position', 'Relationship', convert_family_position],
+        ['prefix', 'Title', convert_prefix],
+        ['first name', 'Preferred Name'],
+        ['middle name', 'Middle Name'],
+        ['last name', 'Last Name'],
+        ['suffix', 'Suffix', convert_suffix],
+        ['legal name', 'First Name'],
+        ['Limited Access User', None, '<limited_access_setting>'],
+        ['Listed', None, convert_listed],
+        ['inactive/remove', 'Active Profile', convert_inactive_remove],
+        ['campus', None, 'Ingomar Church'],
+        ['email', 'Individual e-Mail'],
+        ['mailing street', 'Address'],
+        ['mailing street line 2', 'Address Line 2'],
+        ['city', 'City'],
+        ['state', 'State'],
+        ['postal code', 'Zip Code'],
+        ['country', 'Country'],
+        ['mailing carrier route'],
+        ['home street', 'Address'],
+        ['home street line 2', 'Address Line 2'],
+        ['home_city', 'City'],
+        ['home_state', 'State'],
+        ['home_postal code', 'Zip Code'],
+        ['area_of_town'],
+        ['contact_phone', None, convert_contact_phone],
+        ['home phone', 'Home Phone', convert_phone],
+        ['work phone', 'Work Phone', convert_phone],
+        ['cell phone', 'Cell Phone', convert_phone],
+        ['service provider'],
+        ['fax'],
+        ['pager'],
+        ['emergency phone'],
+        ['emergency contact name'],
+        ['birthday', 'Birth Date', convert_date],
+        ['anniversary', 'Wedding Date', convert_date],
+        ['gender', 'Gender', convert_gender],
+        ['giving #', 'Env #'],
+        ['marital status', 'Marital Status', convert_marital_status],
+        ['membership date', 'Date Joined', convert_date],
+        ['membership stop date', 'Trf out/Withdrawal Date', convert_date],
+        ['membership type', None, convert_membership_type],
+        ['baptized', 'Baptized', convert_baptized],
+        ['school', 'School District'],
+        ['school grade'],
+        ['known allergies'],
+        ['confirmed no allergies'],
+        ['notes', None, convert_notes],
+        ['approved to work with children', None, convert_approved_to_work_with_children],
+        ['approved to work with children stop date', None, convert_approved_to_work_with_children_stop_date],
+        ['commitment date'],
+        ['how they heard', None, convert_how_they_heard],
+        ['how they joined', None, convert_how_they_joined],
+        ['reason left church', None, convert_reason_left_church],
+        ['job title', 'Occupation'],
+        ['work street 1'],
+        ['work street 2'],
+        ['work city'],
+        ['work state'],
+        ['work postal code'],
+        ['Current Story'],
+        ['Commitment Story'],
+        ['deceased', 'Date of Death', convert_date],
+        ['facebook_username'],
+        ['twitter_username'],
+        ['blog_username'],
+        ['website my'],
+        ['website work'],
+        ['military'],  # Anything from Carol?
+        ['spiritual_maturity'],
+        ['spiritual_gifts', None, convert_spiritual_gifts],
+        ['passions', None, convert_passions],
+        ['abilities/skills', None, convert_abilities_skills],
+        ['church_services_I_attend'],
+        ['personal_style'],
 
         # No such thing as 'other' address info in silver_sample file, but they're valid fields
-        ('other street', 'Alt Address'),
-        ('other street line 2', 'Alt Address Line 2'),
-        ('other city', 'Alt City'),
-        ('other country', 'Alt Country'),
-        ('other state', 'Alt State'),
-        ('other_postal code', 'Alt Zip Code'),
+        ['other street', 'Alt Address'],
+        ['other street line 2', 'Alt Address Line 2'],
+        ['other city', 'Alt City'],
+        ['other country', 'Alt Country'],
+        ['other state', 'Alt State'],
+        ['other_postal code', 'Alt Zip Code'],
 
         # Guest folloowup process queue
-        ('guest_followup 1 month', '1-Month Follow-up', None, 'process_queue'),
-        ('guest_followup 1 week', 'Wk 1 Follow-up', None, 'process_queue'),
-        ('guest_followup 2 weeks', 'Wk 2 Follow-up', None, 'process_queue'),
+        ['guest_followup 1 month', '1-Month Follow-up', None, 'process_queue'],
+        ['guest_followup 1 week', 'Wk 1 Follow-up', None, 'process_queue'],
+        ['guest_followup 2 weeks', 'Wk 2 Follow-up', None, 'process_queue'],
 
         # Burial folloowup process queue
-        ('burial city county state', 'Burial: City, County, St', None, 'process_queue'),
-        ('burial date', 'Burial: Date', convert_date, 'process_queue'),
-        ('burial officiating pastor', 'Burial: Officating Pastor', None, 'process_queue'),
-        ('burial site title', 'Burial: Site Title', None, 'process_queue'),
+        ['burial city county state', 'Burial: City, County, St', None, 'process_queue'],
+        ['burial date', 'Burial: Date', convert_date, 'process_queue'],
+        ['burial officiating pastor', 'Burial: Officating Pastor', None, 'process_queue'],
+        ['burial site title', 'Burial: Site Title', None, 'process_queue'],
 
         # Custom fields
-        ('baptism date', 'Baptized Date', convert_date, 'custom-pulldown'),
-        ('baptized by', 'Baptized by', None, 'custom-pulldown'),
-        ('confirmed date', 'Confirmed Date', convert_date, 'custom-date'),
-        ('confirmed', 'Confirmed', convert_confirmed, 'custom-pulldown'),
-        ('mailbox number', 'Mail Box #', None, 'custom-text'),
-        ('spirit mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'),
-        ('photo release', 'Photo Release', convert_photo_release, 'custom-pulldown'),
-        ('ethnicity', 'Racial/Ethnic identification', convert_ethnicity, 'custom-pulldown'),
-        ('church transferred from', 'Church Transferred From', None, 'custom-text'),
-        ('church transferred to', 'Church Transferred To', None, 'custom-text'),
-        ('pastor when joined', 'Pastor when joined', None, 'custom-text'),
-        ('pastor when leaving', 'Pastor when leaving', None, 'custom-text')
+        ['baptism date', 'Baptized Date', convert_date, 'custom-pulldown'],
+        ['baptized by', 'Baptized by', None, 'custom-pulldown'],
+        ['confirmed date', 'Confirmed Date', convert_date, 'custom-date'],
+        ['confirmed', 'Confirmed', convert_confirmed, 'custom-pulldown'],
+        ['mailbox number', 'Mail Box #', None, 'custom-text'],
+        ['spirit mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'],
+        ['photo release', 'Photo Release', convert_photo_release, 'custom-pulldown'],
+        ['ethnicity', 'Racial/Ethnic identification', convert_ethnicity, 'custom-pulldown'],
+        ['church transferred from', 'Church Transferred From', None, 'custom-text'],
+        ['church transferred to', 'Church Transferred To', None, 'custom-text'],
+        ['pastor when joined', 'Pastor when joined', None, 'custom-text'],
+        ['pastor when leaving', 'Pastor when leaving', None, 'custom-text']
     ]
 
     num_sk_columns = len(petl.header(table))
-    for field_map_tuple in field_mappings:
-        val_field_ccb_name = field_map_tuple[field_ccb_name]
+    for field_map_list in field_mappings:
+
+        val_field_ccb_name = field_map_list[field_ccb_name]
         val_field_sk_name = None
         val_field_converter_method = None
         val_field_custom_or_process_queue = None
-        if len(field_map_tuple) > 1:
-            val_field_sk_name = field_map_tuple[field_sk_name]
-        if len(field_map_tuple) > 2:
-            val_field_converter_method = field_map_tuple[field_converter_method]
-        if len(field_map_tuple) > 3:
-            val_field_custom_or_process_queue = field_map_tuple[field_custom_or_process_queue]
+
+        print field_map_list
+        print len(field_map_list)
+        print '>0'
+        if len(field_map_list) > 1:
+            val_field_sk_name = field_map_list[field_sk_name]
+            print '>1'
+        if len(field_map_list) > 2:
+            val_field_converter_method = field_map_list[field_converter_method]
+            print '>2'
+        if len(field_map_list) > 3:
+            val_field_custom_or_process_queue = field_map_list[field_custom_or_process_queue]
+            print '>3'
+
+        if val_field_custom_or_process_queue is not None:
+            add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
 
         # Add empty CCB placeholder column with no data to populate it
         if val_field_sk_name is None and val_field_converter_method is None:
-            table = add_empty_column(table, val_field_ccb_name, val_field_custom_or_process_queue)
+            table = add_empty_column(table, val_field_ccb_name)
 
         # Add cloned and renamed column
         elif val_field_sk_name is not None and val_field_converter_method is None:
-            table = add_cloned_column(table, val_field_ccb_name, val_field_sk_name,
-                val_field_custom_or_process_queue)
+            table = add_cloned_column(table, val_field_ccb_name, val_field_sk_name)
 
         # Add empty or cloned/renamed column and run it through converter method
         elif val_field_sk_name is None and val_field_converter_method is not None:
-            table = add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method,
-                val_field_custom_or_process_queue)
+            if isinstance(val_field_converter_method, basestring):
+                table = add_fixed_string_column(table, val_field_ccb_name, val_field_converter_method)
+            elif callable(val_field_converter_method):
+                table = add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method)
+            else:
+                raise AssertionError("On '" + val_field_ccb_name + "' field, converter method is not callable " \
+                    "and not a string")
 
         # If source SK column is specified, clone it and convert
         elif val_field_sk_name is not None and val_field_converter_method is not None:
-            table = add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
-                val_field_converter_method, val_field_custom_or_process_queue)
-
+            if not callable(val_field_converter_method):
+                raise AssertionError("On '" + val_field_ccb_name + "' field, converter method is not callable")
+            else:
+                table = add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
+                    val_field_converter_method)
 
     # TODO - Rewrite logic to walk structure above (keep track of SK fields used so on 2nd hit, don't rename field,
     # clone field instead).  Also make sure to somehow stash columns used by xref mappers
@@ -870,40 +891,58 @@ def add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_fie
         'custom-date': 'This field is a CCB custom date field',
         'process_queue': 'This field is a CCB process queue data field'
     }
-    if val_field_custom_or_process_queue is not None:
-        assert val_field_custom_or_process_queue in map_field_to_comment
-        if val_field_ccb_name not in g.header_comments:
-            g.header_comments[val_field_custom_or_process_queue] = ''
-        g.header_comments[val_field_custom_or_process_queue] += map_field_to_comment[val_field_custom_or_process_queue]
+    assert val_field_custom_or_process_queue in map_field_to_comment
+    if val_field_ccb_name not in g.header_comments:
+        g.header_comments[val_field_ccb_name] = ''
+    g.header_comments[val_field_ccb_name] += map_field_to_comment[val_field_custom_or_process_queue]
 
 
-def add_empty_column(table, val_field_ccb_name, val_field_custom_or_process_queue):
-    global g
-    assert val_field_ccb_name is not None
-    add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
-    return petl.addfield(table, val_field_ccb_name, '')
-    pass
+def add_empty_column(table, val_field_ccb_name):
+    assert isinstance(val_field_ccb_name, basestring)
+    if g.args.trace:
+        print "Adding empty column '" + val_field_ccb_name + "'"
+    table = petl.addfield(table, val_field_ccb_name, '')
+    return table
 
 
-def add_cloned_column(table, val_field_ccb_name, val_field_sk_name, val_field_custom_or_process_queue):
-    assert val_field_ccb_name is not None
-    assert val_field_sk_name is not None
-    pass
+def add_fixed_string_column(table, val_field_ccb_name, fixed_string):
+    assert isinstance(val_field_ccb_name, basestring)
+    assert isinstance(fixed_string, basestring)
+    if g.args.trace:
+        print "Adding fixed string column '" + val_field_ccb_name + "', with value '" + fixed_string + "'"
+    table = petl.addfield(table, val_field_ccb_name, fixed_string)
+    return table
 
 
-def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method,
-    val_field_custom_or_process_queue):
-    assert val_field_ccb_name is not None
-    assert val_field_converter_method is not None
-    pass
+def add_cloned_column(table, val_field_ccb_name, val_field_sk_name):
+    assert isinstance(val_field_ccb_name, basestring)
+    assert isinstance(val_field_sk_name, basestring)
+    if g.args.trace:
+        print "Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + "'"
+    table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
+    return table
 
 
-def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name, val_field_converter_method,
-    val_field_custom_or_process_queue):
-    assert val_field_ccb_name is not None
-    assert val_field_sk_name is not None
-    assert val_field_converter_method is not None
-    pass
+def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method):
+    assert isinstance(val_field_ccb_name, basestring)
+    assert callable(val_field_converter_method)
+    if g.args.trace:
+        print "Adding empty column '" + val_field_ccb_name + "', and then converting"
+    table = petl.addfield(table, val_field_ccb_name, '')
+    table = petl.convert(table, val_field_ccb_name, val_field_converter_method, pass_row=True)
+    return table
+
+
+def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name, val_field_converter_method):
+    assert isinstance(val_field_ccb_name, basestring)
+    assert isinstance(val_field_sk_name, basestring)
+    assert callable(val_field_converter_method)
+    if g.args.trace:
+        print "Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + \
+            "', and then converting"
+    table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
+    table = petl.convert(table, val_field_ccb_name, val_field_converter_method, pass_row=True)
+    return table
 
 
 if __name__ == "__main__":
