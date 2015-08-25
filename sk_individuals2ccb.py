@@ -5,13 +5,20 @@ import sys, getopt, os.path, csv, argparse, petl, re
 from collections import namedtuple
 
 
+# Fake class only for purpose of limiting global namespace to the 'g' object
+class g:
+    xref_member_fields = None
+    xref_how_sourced = None
+    xref_w2s_skills_sgifts = None
+    hitmiss_counters = None
+    semicolon_sep_fields = None
+    header_comments = None
+
+
 def main(argv):
-    global xref_member_fields
-    global xref_how_sourced
-    global xref_w2s_skills_sgifts
-    global hitmiss_counters
-    global semicolon_sep_fields
-    
+
+    global g
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
                         "from Servant Keeper")
@@ -30,75 +37,73 @@ def main(argv):
     # Drop out all rows in Servant Keeper marked as 'Active Profile' != 'Yes' (i.e. == 'No')
     # table = petl.select(table, "{Active Profile} == 'Yes'")
 
-    table_ccb = cut_and_rename_columns(table_sk)
+    # table_ccb = cut_and_rename_columns(table_sk)
 
     # Remove empty dates and dates missing year
-    regex_empty_dates = r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)'
-    table_ccb = petl.sub(table_ccb, 'birthday', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'deceased', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'anniversary', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'baptism date', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'pq__burial date', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'confirmed date', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'membership date', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'membership stop date', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 month', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 week', regex_empty_dates, '')
-    table_ccb = petl.sub(table_ccb, 'pq__guest_followup 2 weeks', regex_empty_dates, '')
+    # regex_empty_dates = r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)'
+    # table_ccb = petl.sub(table_ccb, 'birthday', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'deceased', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'anniversary', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'baptism date', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'pq__burial date', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'confirmed date', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'membership date', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'membership stop date', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 month', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 week', regex_empty_dates, '')
+    # table_ccb = petl.sub(table_ccb, 'pq__guest_followup 2 weeks', regex_empty_dates, '')
 
     # Remove empty phone numbers
-    regex_empty_phones = r'^\s+\-\s+\-\s+$'
-    table_ccb = petl.sub(table_ccb, 'cell phone', regex_empty_phones, '')
-    table_ccb = petl.sub(table_ccb, 'home phone', regex_empty_phones, '')
-    table_ccb = petl.sub(table_ccb, 'work phone', regex_empty_phones, '')
+    # regex_empty_phones = r'^\s+\-\s+\-\s+$'
+    # table_ccb = petl.sub(table_ccb, 'cell phone', regex_empty_phones, '')
+    # table_ccb = petl.sub(table_ccb, 'home phone', regex_empty_phones, '')
+    # table_ccb = petl.sub(table_ccb, 'work phone', regex_empty_phones, '')
 
     # Clones
     # TODO, use 'index=' to place these new columns at right locations (using 'add_after' helper?)
-    table_ccb = petl.addfield(table_ccb, 'sync id', lambda rec: rec['individual id'])
-    table_ccb = petl.addfield(table_ccb, 'mailing street', lambda rec: rec['home street'])
-    table_ccb = petl.addfield(table_ccb, 'mailing street line 2', lambda rec: rec['home street line 2'])
-    table_ccb = petl.addfield(table_ccb, 'home_city', lambda rec: rec['city'])
-    table_ccb = petl.addfield(table_ccb, 'home_state', lambda rec: rec['state'])
-    table_ccb = petl.addfield(table_ccb, 'home_postal code', lambda rec: rec['postal code'])
+    # table_ccb = petl.addfield(table_ccb, 'sync id', lambda rec: rec['individual id'])
+    # table_ccb = petl.addfield(table_ccb, 'mailing street', lambda rec: rec['home street'])
+    # table_ccb = petl.addfield(table_ccb, 'mailing street line 2', lambda rec: rec['home street line 2'])
+    # table_ccb = petl.addfield(table_ccb, 'home_city', lambda rec: rec['city'])
+    # table_ccb = petl.addfield(table_ccb, 'home_state', lambda rec: rec['state'])
+    # table_ccb = petl.addfield(table_ccb, 'home_postal code', lambda rec: rec['postal code'])
 
     # Simple remaps
-    table_ccb = petl.convert(table_ccb, 'inactive/remove', {'Yes': '', 'No': 'yes'})
+    # table_ccb = petl.convert(table_ccb, 'inactive/remove', {'Yes': '', 'No': 'yes'})
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
-    xref_member_fields = get_xref_member_fields()
-    table_tmp = petl.addfield(table_sk, 'ccb__membership type', get_membership_type)
-    table_tmp = petl.addfield(table_tmp, 'ccb__inactive/remove', get_inactive_remove)
-    table_tmp = petl.addfield(table_tmp, 'ccb__membership date', get_membership_date)
-    table_tmp = petl.addfield(table_tmp, 'ccb__reason left', get_reason_left)
-    table_tmp = petl.addfield(table_tmp, 'ccb__membership stop date', get_membership_stop_date)
-    table_tmp = petl.addfield(table_tmp, 'ccb__deceased', get_deceased)
+    g.xref_member_fields = get_xref_member_fields()
+    # table_tmp = petl.addfield(table_sk, 'ccb__membership type', get_membership_type)
+    # table_tmp = petl.addfield(table_tmp, 'ccb__inactive/remove', get_inactive_remove)
+    # table_tmp = petl.addfield(table_tmp, 'ccb__membership date', get_membership_date)
+    # table_tmp = petl.addfield(table_tmp, 'ccb__reason left', get_reason_left)
+    # table_tmp = petl.addfield(table_tmp, 'ccb__membership stop date', get_membership_stop_date)
+    # table_tmp = petl.addfield(table_tmp, 'ccb__deceased', get_deceased)
 
     # Do single xref mapping specified in 'XRef-How Sourced' tab of mapping spreadsheet
-    xref_how_sourced = get_xref_how_sourced()
-    table_tmp = petl.addfield(table_tmp, 'ccb_how they heard', get_how_they_heard)
+    g.xref_how_sourced = get_xref_how_sourced()
+    # table_tmp = petl.addfield(table_tmp, 'ccb_how they heard', get_how_they_heard)
 
     # Do xref mappings specified in 'XRef-W2S, Skills, SGifts' tab of mapping spreadsheet
-    xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
-    semicolon_sep_fields = {}
-    init_hitmiss_counters(xref_w2s_skills_sgifts)
-    gather_semicolon_sep_field(semicolon_sep_fields, table_tmp, 'Willing to Serve')
-    gather_semicolon_sep_field(semicolon_sep_fields, table_tmp, 'Skills')
-    gather_semicolon_sep_field(semicolon_sep_fields, table_tmp, 'Spiritual Gifts')
-    table_tmp = petl.addfield(table_tmp, 'ccb__passions', get_gathered_passions)
-    table_tmp = petl.addfield(table_tmp, 'ccb__abilities', get_gathered_abilities)
-    table_tmp = petl.addfield(table_tmp, 'ccb__spiritual_gifts', get_gathered_spiritual_gifts)
-
-    # print semicolon_sep_fields
+    g.xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
+    g.semicolon_sep_fields = {}
+    init_hitmiss_counters(g.xref_w2s_skills_sgifts)
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table_sk, 'Willing to Serve')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table_sk, 'Skills')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table_sk, 'Spiritual Gifts')
+    # table_tmp = petl.addfield(table_tmp, 'ccb__passions', get_gathered_passions)
+    # table_tmp = petl.addfield(table_tmp, 'ccb__abilities', get_gathered_abilities)
+    # table_tmp = petl.addfield(table_tmp, 'ccb__spiritual_gifts', get_gathered_spiritual_gifts)
 
     # print hitmiss_counters
     # for sk_field in hitmiss_counters:
     #    for item in hitmiss_counters[sk_field]:
     #        print >> sys.stderr, sk_field + ';' + item + ';' + str(hitmiss_counters[sk_field][item])
 
-    # petl.tocsv(table, args.output_filename)
+    table_ccb = handle_field_mappings(table_sk)
+    print g.header_comments
 
-    print table_ccb
-    print table_tmp
+    # petl.tocsv(table, args.output_filename)
 
 
 #######################################################################################################################
@@ -106,9 +111,9 @@ def main(argv):
 #######################################################################################################################
 
 def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
-    global xref_w2s_skills_sgifts
+    global g
 
-    if not field_name in xref_w2s_skills_sgifts:
+    if not field_name in g.xref_w2s_skills_sgifts:
         print >> sys.stderr, '*** Unknown Servant Keeper field: ' + field_name
         sys.exit(1)
     non_blank_rows = petl.selectisnot(table, field_name, u'')
@@ -116,16 +121,16 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
         individual_id = indiv_id2semi_sep[0]
         list_skills_gifts = [x.strip() for x in indiv_id2semi_sep[1].split(';')]
         for skill_gift in list_skills_gifts:
-            if skill_gift in xref_w2s_skills_sgifts[field_name]:
-                ccb_area = xref_w2s_skills_sgifts[field_name][skill_gift][0]
-                ccb_flag_to_set = xref_w2s_skills_sgifts[field_name][skill_gift][1]
-                if not individual_id in semicolon_sep_fields:
+            if skill_gift in g.xref_w2s_skills_sgifts[field_name]:
+                ccb_area = g.xref_w2s_skills_sgifts[field_name][skill_gift][0]
+                ccb_flag_to_set = g.xref_w2s_skills_sgifts[field_name][skill_gift][1]
+                if not individual_id in g.semicolon_sep_fields:
                     semicolon_sep_fields[individual_id] = {
                         'spiritual gifts': set(),
                         'passions': set(),
                         'abilities': set()
                     }
-                semicolon_sep_fields[individual_id][ccb_area].add(ccb_flag_to_set)
+                g.semicolon_sep_fields[individual_id][ccb_area].add(ccb_flag_to_set)
                 record_hitmiss(field_name, skill_gift, 1)
             else:
                 record_hitmiss(field_name, skill_gift, -1)
@@ -205,20 +210,20 @@ def get_xref_w2s_skills_sgifts():
 #######################################################################################################################
 
 def init_hitmiss_counters(xref_w2s_skills_sgifts_mappings):
-    global hitmiss_counters
-    hitmiss_counters = {}
+    global g
+    g.hitmiss_counters = {}
     for sk_field in xref_w2s_skills_sgifts_mappings:
-        hitmiss_counters[sk_field] = {}
+        g.hitmiss_counters[sk_field] = {}
         for item in xref_w2s_skills_sgifts_mappings[sk_field]:
-            hitmiss_counters[sk_field][item] = 0
+            g.hitmiss_counters[sk_field][item] = 0
 
 def record_hitmiss(sk_field, item, count):
-    global hitmiss_counters
-    if not sk_field in hitmiss_counters:
-        hitmiss_counters[sk_field] = {}
-    if not item in hitmiss_counters[sk_field]:
-        hitmiss_counters[sk_field][item] = 0
-    hitmiss_counters[sk_field][item] += count
+    global g
+    if not sk_field in g.hitmiss_counters:
+        g.hitmiss_counters[sk_field] = {}
+    if not item in g.hitmiss_counters[sk_field]:
+        g.hitmiss_counters[sk_field][item] = 0
+    g.hitmiss_counters[sk_field][item] += count
 
 
 #######################################################################################################################
@@ -226,29 +231,29 @@ def record_hitmiss(sk_field, item, count):
 #######################################################################################################################
 
 def get_gathered_passions(row):
-    global semicolon_sep_fields
+    global g
 
     indiv_id = row['Individual ID']
-    if indiv_id in semicolon_sep_fields:
-        return ';'.join(semicolon_sep_fields[indiv_id]['passions'])
+    if indiv_id in g.semicolon_sep_fields:
+        return ';'.join(g.semicolon_sep_fields[indiv_id]['passions'])
     else:
         return ''
 
 def get_gathered_abilities(row):
-    global semicolon_sep_fields
+    global g
 
     indiv_id = row['Individual ID']
-    if indiv_id in semicolon_sep_fields:
-        return ';'.join(semicolon_sep_fields[indiv_id]['abilities'])
+    if indiv_id in g.semicolon_sep_fields:
+        return ';'.join(g.semicolon_sep_fields[indiv_id]['abilities'])
     else:
         return ''
 
 def get_gathered_spiritual_gifts(row):
-    global semicolon_sep_fields
+    global g
 
     indiv_id = row['Individual ID']
-    if indiv_id in semicolon_sep_fields:
-        return ';'.join(semicolon_sep_fields[indiv_id]['spiritual gifts'])
+    if indiv_id in g.semicolon_sep_fields:
+        return ';'.join(g.semicolon_sep_fields[indiv_id]['spiritual gifts'])
     else:
         return ''
 
@@ -284,9 +289,9 @@ def get_xref_how_sourced():
 #######################################################################################################################
 
 def get_how_they_heard(row):
-    global xref_how_sourced
+    global g
 
-    value = xref_how_sourced[row['How Sourced?']]
+    value = g.xref_how_sourced[row['How Sourced?']]
 
     return value
 
@@ -434,9 +439,9 @@ def get_xref_member_fields():
 #######################################################################################################################
 
 def get_membership_type(row):
-    global xref_member_fields
+    global g
 
-    value = xref_member_fields[row['Member Status']]['membership type']
+    value = g.xref_member_fields[row['Member Status']]['membership type']
     if callable(value):
         value = value(row)
 
@@ -444,17 +449,17 @@ def get_membership_type(row):
 
 
 def get_inactive_remove(row):
-    global xref_member_fields
+    global g
 
-    value = xref_member_fields[row['Member Status']]['inactive/remove']
+    value = g.xref_member_fields[row['Member Status']]['inactive/remove']
 
     return value
 
 
 def get_membership_date(row):
-    global xref_member_fields
+    global g
 
-    value = xref_member_fields[row['Member Status']]['membership date']
+    value = g.xref_member_fields[row['Member Status']]['membership date']
     if callable(value):
         value = value(row)
 
@@ -462,17 +467,17 @@ def get_membership_date(row):
 
 
 def get_reason_left(row):
-    global xref_member_fields
+    global g
 
-    value = xref_member_fields[row['Member Status']]['reason left']
+    value = g.xref_member_fields[row['Member Status']]['reason left']
 
     return value
 
 
 def get_membership_stop_date(row):
-    global xref_member_fields
+    global g
 
-    value = xref_member_fields[row['Member Status']]['membership stop date']
+    value = g.xref_member_fields[row['Member Status']]['membership stop date']
     if callable(value):
         value = value(row)
 
@@ -480,9 +485,9 @@ def get_membership_stop_date(row):
 
 
 def get_deceased(row):
-    global xref_member_fields
+    global g
 
-    value = xref_member_fields[row['Member Status']]['deceased']
+    value = g.xref_member_fields[row['Member Status']]['deceased']
     if callable(value):
         value = value(row)
 
@@ -519,8 +524,18 @@ def get_date_of_death(row):
 
 
 #######################################################################################################################
-# Straight column rename mapping
+# Field converter methods
 #######################################################################################################################
+
+def convert_date(value, row):
+    # TODO
+    return''
+
+
+def convert_phone(value, row):
+    # TODO
+    return''
+
 
 def convert_family_position(value, row):
     """Field is remapped as follows:
@@ -562,7 +577,111 @@ def convert_suffix(value, row):
     return ''
 
 
+def convert_listed(value, row):
+    # TODO
+    return''
+
+
+def convert_inactive_remove(value, row):
+    # TODO
+    return''
+
+
+def convert_contact_phone(value, row):
+    # TODO
+    return''
+
+
+def convert_gender(value, row):
+    # TODO
+    return''
+
+
+def convert_marital_status(value, row):
+    # TODO
+    return''
+
+
+def convert_membership_type(value, row):
+    # TODO
+    return''
+
+
+def convert_baptized(value, row):
+    # TODO
+    return''
+
+
+def convert_notes(value, row):
+    # TODO
+    return''
+
+
+def convert_approved_to_work_with_children(value, row):
+    # TODO
+    return''
+
+
+def convert_approved_to_work_with_children_stop_date(value, row):
+    # TODO
+    return''
+
+
+def convert_how_they_heard(value, row):
+    # TODO
+    return''
+
+
+def convert_how_they_joined(value, row):
+    # TODO
+    return''
+
+
+def convert_reason_left_church(value, row):
+    # TODO
+    return''
+
+
+def convert_spiritual_gifts(value, row):
+    # TODO
+    return''
+
+
+def convert_passions(value, row):
+    # TODO
+    return''
+
+
+def convert_abilities_skills(value, row):
+    # TODO
+    return''
+
+
+def convert_confirmed(value, row):
+    # TODO
+    return''
+
+
+def convert_spirit_mailing(value, row):
+    # TODO
+    return''
+
+
+def convert_photo_release(value, row):
+    # TODO
+    return''
+
+
+def convert_ethnicity(value, row):
+    # TODO
+    return''
+
+
 def handle_field_mappings(table):
+
+    global g
+
+    g.header_comments = {}
 
     # Layout of field_mappings list of tuples below is:
     #
@@ -658,7 +777,7 @@ def handle_field_mappings(table):
         ('military'),  # Anything from Carol?
         ('spiritual_maturity'),
         ('spiritual_gifts', None, convert_spiritual_gifts),
-        ('passions', None, convert_spiritual_passions),
+        ('passions', None, convert_passions),
         ('abilities/skills', None, convert_abilities_skills),
         ('church_services_I_attend'),
         ('personal_style'),
@@ -699,31 +818,92 @@ def handle_field_mappings(table):
 
     num_sk_columns = len(petl.header(table))
     for field_map_tuple in field_mappings:
-        if len(field_map_tuple) == 1:  # Add empty CCB placeholder column with no data to populate it
-            table = add_empty_column(table, field_map_tuple[field_ccb_name])
-        elif len(field_map_tuple) == 2:  # Add cloned and renamed column
-            table = add_cloned_column(table, field_map_tuple[field_ccb_name], field_map_tuple[field_sk_name])
-        elif len(field_map_tuple) == 3:  # Add empty or cloned/renamed column and run it through converter method
-            if field_map_tuple[field_sk_name] is None:  # No source SK column specified, convert empty new column
-                assert field_map_tuple[field_converter_method] is not None
-                table = add_empty_column_then_convert(table, field_map_tuple[field_ccb_name],
-                    field_map_tuple[field_converter_method])
-                else:  # Source SK column is specified, clone it and convert
-                    table = add_cloned_column_then_convert(table, field_map_tuple[field_ccb_name],
-                        field_map_tuple[field_sk_name], field_map_tuple[field_converter_method])
-        elif len(field_map_tuple) == 4:  #
-            pass
+        val_field_ccb_name = field_map_tuple[field_ccb_name]
+        val_field_sk_name = None
+        val_field_converter_method = None
+        val_field_custom_or_process_queue = None
+        if len(field_map_tuple) > 1:
+            val_field_sk_name = field_map_tuple[field_sk_name]
+        if len(field_map_tuple) > 2:
+            val_field_converter_method = field_map_tuple[field_converter_method]
+        if len(field_map_tuple) > 3:
+            val_field_custom_or_process_queue = field_map_tuple[field_custom_or_process_queue]
+
+        # Add empty CCB placeholder column with no data to populate it
+        if val_field_sk_name is None and val_field_converter_method is None:
+            table = add_empty_column(table, val_field_ccb_name, val_field_custom_or_process_queue)
+
+        # Add cloned and renamed column
+        elif val_field_sk_name is not None and val_field_converter_method is None:
+            table = add_cloned_column(table, val_field_ccb_name, val_field_sk_name,
+                val_field_custom_or_process_queue)
+
+        # Add empty or cloned/renamed column and run it through converter method
+        elif val_field_sk_name is None and val_field_converter_method is not None:
+            table = add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method,
+                val_field_custom_or_process_queue)
+
+        # If source SK column is specified, clone it and convert
+        elif val_field_sk_name is not None and val_field_converter_method is not None:
+            table = add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
+                val_field_converter_method, val_field_custom_or_process_queue)
 
 
     # TODO - Rewrite logic to walk structure above (keep track of SK fields used so on 2nd hit, don't rename field,
     # clone field instead).  Also make sure to somehow stash columns used by xref mappers
 
-    cut_keys = [tuple[0] for tuple in column_renames]
-    rename_dict = {tuple[0]: tuple[1] for tuple in column_renames}
+    # cut_keys = [tuple[0] for tuple in column_renames]
+    # rename_dict = {tuple[0]: tuple[1] for tuple in column_renames}
 
-    table_ccb_columns = petl.cut(table, cut_keys)
+    # table_ccb_columns = petl.cut(table, cut_keys)
 
-    return petl.rename(table_ccb_columns, rename_dict)
+    # return petl.rename(table_ccb_columns, rename_dict)
+
+    return table
+
+
+def add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue):
+    global g
+    map_field_to_comment = {
+        'custom-pulldown': 'This field is a CCB custom pulldown field',
+        'custom-text': 'This field is a CCB custom text field',
+        'custom-date': 'This field is a CCB custom date field',
+        'process_queue': 'This field is a CCB process queue data field'
+    }
+    if val_field_custom_or_process_queue is not None:
+        assert val_field_custom_or_process_queue in map_field_to_comment
+        if val_field_ccb_name not in g.header_comments:
+            g.header_comments[val_field_custom_or_process_queue] = ''
+        g.header_comments[val_field_custom_or_process_queue] += map_field_to_comment[val_field_custom_or_process_queue]
+
+
+def add_empty_column(table, val_field_ccb_name, val_field_custom_or_process_queue):
+    global g
+    assert val_field_ccb_name is not None
+    add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
+    return petl.addfield(table, val_field_ccb_name, '')
+    pass
+
+
+def add_cloned_column(table, val_field_ccb_name, val_field_sk_name, val_field_custom_or_process_queue):
+    assert val_field_ccb_name is not None
+    assert val_field_sk_name is not None
+    pass
+
+
+def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method,
+    val_field_custom_or_process_queue):
+    assert val_field_ccb_name is not None
+    assert val_field_converter_method is not None
+    pass
+
+
+def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name, val_field_converter_method,
+    val_field_custom_or_process_queue):
+    assert val_field_ccb_name is not None
+    assert val_field_sk_name is not None
+    assert val_field_converter_method is not None
+    pass
 
 
 if __name__ == "__main__":
