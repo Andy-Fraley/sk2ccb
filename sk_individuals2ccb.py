@@ -14,6 +14,9 @@ class g:
     semicolon_sep_fields = None
     header_comments = None
     args = None
+    conversion_traces = None
+    current_ccb_column = None
+    current_sk_column = None
 
 
 def main(argv):
@@ -35,7 +38,7 @@ def main(argv):
         print >> sys.stderr, "Error: cannot open file '" + g.args.individuals_filename + "'"
         sys.exit(1)
 
-    table_sk = petl.fromcsv(g.args.individuals_filename)
+    table = petl.fromcsv(g.args.individuals_filename)
 
     # Drop out all rows in Servant Keeper marked as 'Active Profile' != 'Yes' (i.e. == 'No')
     # table = petl.select(table, "{Active Profile} == 'Yes'")
@@ -91,9 +94,9 @@ def main(argv):
     g.xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
     g.semicolon_sep_fields = {}
     init_hitmiss_counters(g.xref_w2s_skills_sgifts)
-    gather_semicolon_sep_field(g.semicolon_sep_fields, table_sk, 'Willing to Serve')
-    gather_semicolon_sep_field(g.semicolon_sep_fields, table_sk, 'Skills')
-    gather_semicolon_sep_field(g.semicolon_sep_fields, table_sk, 'Spiritual Gifts')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Willing to Serve')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Skills')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Spiritual Gifts')
     # table_tmp = petl.addfield(table_tmp, 'ccb__passions', get_gathered_passions)
     # table_tmp = petl.addfield(table_tmp, 'ccb__abilities', get_gathered_abilities)
     # table_tmp = petl.addfield(table_tmp, 'ccb__spiritual_gifts', get_gathered_spiritual_gifts)
@@ -103,11 +106,13 @@ def main(argv):
     #    for item in hitmiss_counters[sk_field]:
     #        print >> sys.stderr, sk_field + ';' + item + ';' + str(hitmiss_counters[sk_field][item])
 
-    table_ccb = handle_field_mappings(table_sk)
+    table = handle_field_mappings(table)
 
     print g.header_comments
 
-    # petl.tocsv(table, args.output_filename)
+    petl.tocsv(table, g.args.output_filename)
+
+    print g.conversion_traces
 
 
 #######################################################################################################################
@@ -531,14 +536,59 @@ def get_date_of_death(row):
 # Field converter methods
 #######################################################################################################################
 
+def conversion_trace(row, msg_str):
+    global g
+    indiv_id = row['Individual ID']
+    if indiv_id not in g.conversion_traces:
+        g.conversion_traces[indiv_id] = []
+    if g.current_sk_column is not None:
+        prefix_str = "Mapping from SK column '" + g.current_sk_column + "' to CCB column '" + \
+            g.current_ccb_column + "'. "
+    else:
+        prefix_str = "Converting blank '" + g.current_ccb_column + "'. "
+    g.conversion_traces[indiv_id].append(prefix_str + msg_str)
+
+
 def convert_date(value, row):
-    # TODO
-    return''
+    """
+    regex_empty_dates = r'(\s+/\s+/\s+)'
+    regex_no_year_dates = r'(\d{1,2}/\d{1,2}/\s+)'
+    regex_year_only_dates = r'(\s+/\s+/\d{2,4})'
+    new_value1 = re.sub(regex_empty_dates, '', value)
+    if new_value1 != value:
+        conversion_trace(row, "Replaced empty date string ('  /  /    ') with ''")
+    new_value2 = re.sub(regex_no_year_dates, '', new_value1)
+    if new_value2 != new_value1:
+        conversion_trace(row, "Replaced incomplete date (like '1/23/    ') with ''")
+    new_value3 = re.sub(regex_year_only_dates, '', new_value2)
+    if new_value3 != new_value2:
+        conversion_trace(row, "Replaced incomplete date (like ' /  /1951') with ''")
+    # print "*** convert_date('" + value + "') = '" + new_value3 + "'"
+    """
+    regex_date = r'^(?P<month>\d{1,2})/(?P<day>\d{1,2})/(?P<year>\d{4})$'
+    match = re.search(regex_date, value)
+    if match is not None:
+        try:
+            newDate = datetime.datetime(int(match.group('year'), int(match.group('month')), int(match.group('day'))))
+            validDate = True
+        except ValueError:
+            validDate = False
+    else:
+        validDate = False
+    if not validDate:
+        new_value = ''
+    else:
+        new_value = value
+    return new_value
 
 
 def convert_phone(value, row):
-    # TODO
-    return''
+    regex_empty_phones = r'^\s+\-\s+\-\s+$'
+    new_value = re.sub(regex_empty_phones, '', value)
+    if new_value != value:
+        conversion_trace(row, "Replaced empty phone number string ('   -   -    ') with ''")
+    # print "*** convert_phone('" + value + "') = '" + new_value + "'"
+    return new_value
 
 
 def convert_family_position(value, row):
@@ -686,6 +736,7 @@ def handle_field_mappings(table):
     global g
 
     g.header_comments = {}
+    g.conversion_traces = {}
 
     # Layout of field_mappings list of tuples below is:
     #
@@ -702,8 +753,6 @@ def handle_field_mappings(table):
     field_sk_name = 1
     field_converter_method = 2
     field_custom_or_process_queue = 3
-
-    sk_fields_renamed = set()
 
     field_mappings = [
 
@@ -821,6 +870,7 @@ def handle_field_mappings(table):
     ]
 
     num_sk_columns = len(petl.header(table))
+
     for field_map_list in field_mappings:
 
         val_field_ccb_name = field_map_list[field_ccb_name]
@@ -828,21 +878,15 @@ def handle_field_mappings(table):
         val_field_converter_method = None
         val_field_custom_or_process_queue = None
 
-        print field_map_list
-        print len(field_map_list)
-        print '>0'
+        g.current_ccb_column = val_field_ccb_name
+        g.current_sk_column = val_field_sk_name
+
         if len(field_map_list) > 1:
             val_field_sk_name = field_map_list[field_sk_name]
-            print '>1'
         if len(field_map_list) > 2:
             val_field_converter_method = field_map_list[field_converter_method]
-            print '>2'
         if len(field_map_list) > 3:
             val_field_custom_or_process_queue = field_map_list[field_custom_or_process_queue]
-            print '>3'
-
-        if val_field_custom_or_process_queue is not None:
-            add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
 
         # Add empty CCB placeholder column with no data to populate it
         if val_field_sk_name is None and val_field_converter_method is None:
@@ -870,15 +914,8 @@ def handle_field_mappings(table):
                 table = add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
                     val_field_converter_method)
 
-    # TODO - Rewrite logic to walk structure above (keep track of SK fields used so on 2nd hit, don't rename field,
-    # clone field instead).  Also make sure to somehow stash columns used by xref mappers
-
-    # cut_keys = [tuple[0] for tuple in column_renames]
-    # rename_dict = {tuple[0]: tuple[1] for tuple in column_renames}
-
-    # table_ccb_columns = petl.cut(table, cut_keys)
-
-    # return petl.rename(table_ccb_columns, rename_dict)
+        if val_field_custom_or_process_queue is not None:
+            add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
 
     return table
 
