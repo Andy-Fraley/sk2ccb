@@ -42,55 +42,12 @@ def main(argv):
 
     table = petl.fromcsv(g.args.individuals_filename)
 
-    # Drop out all rows in Servant Keeper marked as 'Active Profile' != 'Yes' (i.e. == 'No')
-    # table = petl.select(table, "{Active Profile} == 'Yes'")
-
-    # table_ccb = cut_and_rename_columns(table_sk)
-
-    # Remove empty dates and dates missing year
-    # regex_empty_dates = r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)'
-    # table_ccb = petl.sub(table_ccb, 'birthday', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'deceased', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'anniversary', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'baptism date', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'pq__burial date', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'confirmed date', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'membership date', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'membership stop date', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 month', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'pq__guest_followup 1 week', regex_empty_dates, '')
-    # table_ccb = petl.sub(table_ccb, 'pq__guest_followup 2 weeks', regex_empty_dates, '')
-
-    # Remove empty phone numbers
-    # regex_empty_phones = r'^\s+\-\s+\-\s+$'
-    # table_ccb = petl.sub(table_ccb, 'cell phone', regex_empty_phones, '')
-    # table_ccb = petl.sub(table_ccb, 'home phone', regex_empty_phones, '')
-    # table_ccb = petl.sub(table_ccb, 'work phone', regex_empty_phones, '')
-
-    # Clones
-    # TODO, use 'index=' to place these new columns at right locations (using 'add_after' helper?)
-    # table_ccb = petl.addfield(table_ccb, 'sync id', lambda rec: rec['individual id'])
-    # table_ccb = petl.addfield(table_ccb, 'mailing street', lambda rec: rec['home street'])
-    # table_ccb = petl.addfield(table_ccb, 'mailing street line 2', lambda rec: rec['home street line 2'])
-    # table_ccb = petl.addfield(table_ccb, 'home_city', lambda rec: rec['city'])
-    # table_ccb = petl.addfield(table_ccb, 'home_state', lambda rec: rec['state'])
-    # table_ccb = petl.addfield(table_ccb, 'home_postal code', lambda rec: rec['postal code'])
-
-    # Simple remaps
-    # table_ccb = petl.convert(table_ccb, 'inactive/remove', {'Yes': '', 'No': 'yes'})
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
     g.xref_member_fields = get_xref_member_fields()
-    # table_tmp = petl.addfield(table_sk, 'ccb__membership type', get_membership_type)
-    # table_tmp = petl.addfield(table_tmp, 'ccb__inactive/remove', get_inactive_remove)
-    # table_tmp = petl.addfield(table_tmp, 'ccb__membership date', get_membership_date)
-    # table_tmp = petl.addfield(table_tmp, 'ccb__reason left', get_reason_left)
-    # table_tmp = petl.addfield(table_tmp, 'ccb__membership stop date', get_membership_stop_date)
-    # table_tmp = petl.addfield(table_tmp, 'ccb__deceased', get_deceased)
 
     # Do single xref mapping specified in 'XRef-How Sourced' tab of mapping spreadsheet
     g.xref_how_sourced = get_xref_how_sourced()
-    # table_tmp = petl.addfield(table_tmp, 'ccb_how they heard', get_how_they_heard)
 
     # Do xref mappings specified in 'XRef-W2S, Skills, SGifts' tab of mapping spreadsheet
     g.xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
@@ -99,16 +56,31 @@ def main(argv):
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Willing to Serve')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Skills')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Spiritual Gifts')
-    # table_tmp = petl.addfield(table_tmp, 'ccb__passions', get_gathered_passions)
-    # table_tmp = petl.addfield(table_tmp, 'ccb__abilities', get_gathered_abilities)
-    # table_tmp = petl.addfield(table_tmp, 'ccb__spiritual_gifts', get_gathered_spiritual_gifts)
 
     # print hitmiss_counters
     # for sk_field in hitmiss_counters:
     #    for item in hitmiss_counters[sk_field]:
     #        print >> sys.stderr, sk_field + ';' + item + ';' + str(hitmiss_counters[sk_field][item])
 
-    table = handle_field_mappings(table)
+    if g.args.trace:
+        print
+        print '*************************************************************************************************' \
+            '**********************'
+        print '*** SETTING UP COLUMNS FOR CONVERSION...'
+        print '*************************************************************************************************' \
+            '**********************'
+        print
+
+    table = setup_column_conversions(table)
+
+    if g.args.trace:
+        print
+        print '*************************************************************************************************' \
+            '**********************'
+        print '*** BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...'
+        print '*************************************************************************************************' \
+            '**********************'
+        print
 
     # print g.header_comments
     # TODO!  Emit g.header_comments as first row
@@ -116,6 +88,16 @@ def main(argv):
     petl.tocsv(table, g.args.output_filename)
 
     # print g.conversion_traces
+
+    if g.args.trace:
+        print
+        print '*************************************************************************************************' \
+            '**********************'
+        print '*** OUTPUT TO CSV COMPLETE.  DONE!'
+        print '*************************************************************************************************' \
+            '**********************'
+        print
+
 
 
 #######################################################################################################################
@@ -613,8 +595,12 @@ def conversion_tracker(row):
             elapsed_time_in_secs = int(time.time() - g.start_conversion_time)
             remaining_secs = (g.total_rows - g.conversion_row_num) * elapsed_time_in_secs / g.conversion_row_num
             print
-            print '*** PROGRESS: ' + str(g.conversion_row_num) + ' of ' + str(g.total_rows) + '. Estimated ' + \
-                str(remaining_secs) + ' seconds remaining.'
+            print '*************************************************************************************************' \
+                '**********************'
+            print '*** CONVERSION PROGRESS: Row ' + str(g.conversion_row_num) + ' of ' + str(g.total_rows) + \
+                '. Estimated ' + str(remaining_secs) + ' seconds remaining.'
+            print '*************************************************************************************************' \
+                '**********************'
             print
 
 
@@ -794,7 +780,7 @@ def convert_ethnicity(value, row, sk_col_name, ccb_col_name):
     return''
 
 
-def handle_field_mappings(table):
+def setup_column_conversions(table):
 
     global g
 
