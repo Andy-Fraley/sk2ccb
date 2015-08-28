@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-import sys, getopt, os.path, csv, argparse, petl, re
+import sys, getopt, os.path, csv, argparse, petl, re, datetime
 from collections import namedtuple
 
 
@@ -12,7 +12,6 @@ class g:
     xref_w2s_skills_sgifts = None
     hitmiss_counters = None
     semicolon_sep_fields = None
-    header_comments = None
     args = None
     conversion_traces = None
     current_ccb_column = None
@@ -549,49 +548,55 @@ def conversion_trace(row, msg_str):
     g.conversion_traces[indiv_id].append(prefix_str + msg_str)
 
 
-def convert_date(value, row):
-    """
-    regex_empty_dates = r'(\s+/\s+/\s+)'
-    regex_no_year_dates = r'(\d{1,2}/\d{1,2}/\s+)'
-    regex_year_only_dates = r'(\s+/\s+/\d{2,4})'
-    new_value1 = re.sub(regex_empty_dates, '', value)
-    if new_value1 != value:
-        conversion_trace(row, "Replaced empty date string ('  /  /    ') with ''")
-    new_value2 = re.sub(regex_no_year_dates, '', new_value1)
-    if new_value2 != new_value1:
-        conversion_trace(row, "Replaced incomplete date (like '1/23/    ') with ''")
-    new_value3 = re.sub(regex_year_only_dates, '', new_value2)
-    if new_value3 != new_value2:
-        conversion_trace(row, "Replaced incomplete date (like ' /  /1951') with ''")
-    # print "*** convert_date('" + value + "') = '" + new_value3 + "'"
-    """
-    regex_date = r'^(?P<month>\d{1,2})/(?P<day>\d{1,2})/(?P<year>\d{4})$'
-    match = re.search(regex_date, value)
-    if match is not None:
-        try:
-            newDate = datetime.datetime(int(match.group('year'), int(match.group('month')), int(match.group('day'))))
-            validDate = True
-        except ValueError:
-            validDate = False
-    else:
+def convert_date(value, row, sk_col_name, ccb_col_name):
+    """Field is converted as follows:
+    If field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained, else
+    it is set to ''"""
+
+    try:
+        datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
+        validDate = True
+    except ValueError:
         validDate = False
+    except:
+        raise
+
     if not validDate:
         new_value = ''
+        if not re.match(r'\s+/\s+/\s+', value):
+            print '*** convert_date() - Column: ' + ccb_col_name + ', Blanked invalid date: ' + value
+            conversion_trace(row, 'Blanked invalid date: ' + value)
     else:
         new_value = value
+
     return new_value
 
 
-def convert_phone(value, row):
-    regex_empty_phones = r'^\s+\-\s+\-\s+$'
-    new_value = re.sub(regex_empty_phones, '', value)
-    if new_value != value:
-        conversion_trace(row, "Replaced empty phone number string ('   -   -    ') with ''")
-    # print "*** convert_phone('" + value + "') = '" + new_value + "'"
+def convert_phone(value, row, sk_col_name, ccb_col_name):
+    """Field is converted as follows:
+    If field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to ''"""
+
+    regex_phone = r'^\d{3}\-\d{3}\-\d{4}$'
+    match = re.search(regex_phone, value)
+    if match is not None:
+        new_value = value
+    else:
+        new_value = ''
+        # print '*** convert_phone() - Blanked invalid phone number: ' + value
+        conversion_trace(row, 'Blanked invalid phone number: ' + value)
     return new_value
 
 
-def convert_family_position(value, row):
+def convert_using_dict_map(value, convert_dict, other):
+    if value in convert_dict:
+        return convert_dict[value]
+    elif other is not None:
+        return other
+    else:
+        raise KeyError(value)
+
+
+def convert_family_position(value, row, sk_col_name, ccb_col_name):
     """Field is remapped as follows:
     'Head of Household' -> 'Primary contact',
     'Spouse' -> 'Spouse',
@@ -599,11 +604,16 @@ def convert_family_position(value, row):
     'Daughter' -> 'Child',
     <anything_else> -> 'Other'"""
 
-    # TODO
-    return ''
+    convert_dict = {
+        'Head of Household': 'Primary contact',
+        'Spouse': 'Spouse',
+        'Son': 'Child',
+        'Daughter': 'Child'
+    }
+    return convert_using_dict_map(value, convert_dict, 'Other')
 
 
-def convert_prefix(value, row):
+def convert_prefix(value, row, sk_col_name, ccb_col_name):
     """Field is remapped as follows:
     'Rev.' -> 'Rev.',
     'Dr.' -> 'Dr.',
@@ -613,11 +623,18 @@ def convert_prefix(value, row):
     'Mrs.' -> 'Mrs.',
     <anything_else> -> ''"""
 
-    # TODO
-    return ''
+    convert_dict = {
+        'Rev.': 'Rev.',
+        'Dr.': 'Dr.',
+        'Mr.': 'Mr.',
+        'Pastor': 'Pastor',
+        'Ms.': 'Ms.',
+        'Mrs.': 'Mrs.'
+    }
+    return convert_using_dict_map(value, convert_dict, '')
 
 
-def convert_suffix(value, row):
+def convert_suffix(value, row, sk_col_name, ccb_col_name):
     """Field which is remapped as follows:
     'Jr.' -> 'Jr.',
     'Sr.' -> 'Sr.',
@@ -627,106 +644,119 @@ def convert_suffix(value, row):
     'Dr.' -> 'Dr.',
     <anything_else> -> ''"""
 
-    # TODO
-    return ''
+    convert_dict = {
+        'Jr.': 'Jr.',
+        'Sr.': 'Sr.',
+        'II': 'II',
+        'III': 'III',
+        'IV': 'IV',
+        'Dr.': 'Dr.',
+    }
+    return convert_using_dict_map(value, convert_dict, '')
 
 
-def convert_listed(value, row):
-    # TODO
-    return''
-
-
-def convert_inactive_remove(value, row):
-    # TODO
-    return''
-
-
-def convert_contact_phone(value, row):
+def convert_listed(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_gender(value, row):
+def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
+    """Field which is remapped as follows:
+    'Yes' -> '',
+    'No' -> 'Yes'"""
+    convert_dict = {
+        'Yes': '',
+        'No': 'Yes'
+    }
+    return convert_using_dict_map(value, convert_dict, None)
+
+
+def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_marital_status(value, row):
+def convert_gender(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_membership_type(value, row):
+def convert_marital_status(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_baptized(value, row):
+def convert_membership_type(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_notes(value, row):
+def convert_baptized(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_approved_to_work_with_children(value, row):
+def convert_notes(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_approved_to_work_with_children_stop_date(value, row):
+def convert_approved_to_work_with_children(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_how_they_heard(value, row):
+def convert_approved_to_work_with_children_stop_date(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_how_they_joined(value, row):
+def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_reason_left_church(value, row):
+def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_spiritual_gifts(value, row):
+def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_passions(value, row):
+def convert_spiritual_gifts(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_abilities_skills(value, row):
+def convert_passions(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_confirmed(value, row):
+def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_spirit_mailing(value, row):
+def convert_confirmed(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_photo_release(value, row):
+def convert_spirit_mailing(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
 
-def convert_ethnicity(value, row):
+def convert_photo_release(value, row, sk_col_name, ccb_col_name):
+    # TODO
+    return''
+
+
+def convert_ethnicity(value, row, sk_col_name, ccb_col_name):
     # TODO
     return''
 
@@ -874,15 +904,15 @@ def handle_field_mappings(table):
     for field_map_list in field_mappings:
 
         val_field_ccb_name = field_map_list[field_ccb_name]
+        g.current_ccb_column = val_field_ccb_name
+
         val_field_sk_name = None
         val_field_converter_method = None
         val_field_custom_or_process_queue = None
 
-        g.current_ccb_column = val_field_ccb_name
-        g.current_sk_column = val_field_sk_name
-
         if len(field_map_list) > 1:
             val_field_sk_name = field_map_list[field_sk_name]
+            g.current_sk_column = val_field_sk_name
         if len(field_map_list) > 2:
             val_field_converter_method = field_map_list[field_converter_method]
         if len(field_map_list) > 3:
@@ -960,13 +990,18 @@ def add_cloned_column(table, val_field_ccb_name, val_field_sk_name):
     return table
 
 
+def wrapped_converter_method(converter_method, sk_col_name=None, ccb_col_name=None):
+    return lambda v, rec: converter_method(v, rec, sk_col_name, ccb_col_name)
+
+
 def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method):
     assert isinstance(val_field_ccb_name, basestring)
     assert callable(val_field_converter_method)
     if g.args.trace:
         print "Adding empty column '" + val_field_ccb_name + "', and then converting"
     table = petl.addfield(table, val_field_ccb_name, '')
-    table = petl.convert(table, val_field_ccb_name, val_field_converter_method, pass_row=True)
+    table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
+        sk_col_name=g.current_sk_column, ccb_col_name=g.current_ccb_column), pass_row=True, failonerror=True)
     return table
 
 
@@ -978,7 +1013,8 @@ def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
         print "Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + \
             "', and then converting"
     table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
-    table = petl.convert(table, val_field_ccb_name, val_field_converter_method, pass_row=True)
+    table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
+        sk_col_name=g.current_sk_column, ccb_col_name=g.current_ccb_column), pass_row=True, failonerror=True)
     return table
 
 
