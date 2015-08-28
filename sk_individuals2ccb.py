@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-import sys, getopt, os.path, csv, argparse, petl, re, datetime
+import sys, getopt, os.path, csv, argparse, petl, re, datetime, time
 from collections import namedtuple
 
 
@@ -16,6 +16,9 @@ class g:
     conversion_traces = None
     current_ccb_column = None
     current_sk_column = None
+    conversion_row_num = None
+    start_conversion_time = None
+    total_rows = None
 
 
 def main(argv):
@@ -107,11 +110,12 @@ def main(argv):
 
     table = handle_field_mappings(table)
 
-    print g.header_comments
+    # print g.header_comments
+    # TODO!  Emit g.header_comments as first row
 
     petl.tocsv(table, g.args.output_filename)
 
-    print g.conversion_traces
+    # print g.conversion_traces
 
 
 #######################################################################################################################
@@ -535,17 +539,23 @@ def get_date_of_death(row):
 # Field converter methods
 #######################################################################################################################
 
-def conversion_trace(row, msg_str):
+def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
     global g
     indiv_id = row['Individual ID']
     if indiv_id not in g.conversion_traces:
         g.conversion_traces[indiv_id] = []
-    if g.current_sk_column is not None:
-        prefix_str = "Mapping from SK column '" + g.current_sk_column + "' to CCB column '" + \
-            g.current_ccb_column + "'. "
+    member_str = "Member '" + row['Last Name'] + ", " + row['First Name']
+    if row['Middle Name'] != '':
+        member_str += " " + row['Middle Name']
+    member_str += "' (" + row['Individual ID'] + "). "
+    if sk_col_name is not None:
+        prefix_str = "Mapping from SK column '" + sk_col_name + "' to CCB column '" + \
+            ccb_col_name + "'. "
     else:
-        prefix_str = "Converting blank '" + g.current_ccb_column + "'. "
+        prefix_str = "Converting blank '" + ccb_col_name + "'. "
     g.conversion_traces[indiv_id].append(prefix_str + msg_str)
+    if g.args.trace:
+        print "*** Conversion warning. " + member_str + prefix_str + msg_str
 
 
 def convert_date(value, row, sk_col_name, ccb_col_name):
@@ -564,8 +574,7 @@ def convert_date(value, row, sk_col_name, ccb_col_name):
     if not validDate:
         new_value = ''
         if not re.match(r'\s+/\s+/\s+', value):
-            print '*** convert_date() - Column: ' + ccb_col_name + ', Blanked invalid date: ' + value
-            conversion_trace(row, 'Blanked invalid date: ' + value)
+            conversion_trace(row, "Blanked invalid date: '" + value + "'", sk_col_name, ccb_col_name)
     else:
         new_value = value
 
@@ -582,8 +591,8 @@ def convert_phone(value, row, sk_col_name, ccb_col_name):
         new_value = value
     else:
         new_value = ''
-        # print '*** convert_phone() - Blanked invalid phone number: ' + value
-        conversion_trace(row, 'Blanked invalid phone number: ' + value)
+        if not re.match(r'\s+\-\s+\-\s+', value):
+            conversion_trace(row, "Blanked invalid phone number: '" + value + "'", sk_col_name, ccb_col_name)
     return new_value
 
 
@@ -596,6 +605,26 @@ def convert_using_dict_map(value, convert_dict, other):
         raise KeyError(value)
 
 
+def conversion_tracker(row):
+    global g
+    g.conversion_row_num += 1
+    if g.conversion_row_num % 500 == 0:
+        if g.args.trace:
+            elapsed_time_in_secs = int(time.time() - g.start_conversion_time)
+            remaining_secs = (g.total_rows - g.conversion_row_num) * elapsed_time_in_secs / g.conversion_row_num
+            print
+            print '*** PROGRESS: ' + str(g.conversion_row_num) + ' of ' + str(g.total_rows) + '. Estimated ' + \
+                str(remaining_secs) + ' seconds remaining.'
+            print
+
+
+def init_conversion_tracker(table):
+    global g
+    g.conversion_row_num = 1
+    g.start_conversion_time = time.time()
+    g.total_rows = petl.nrows(table)
+
+
 def convert_family_position(value, row, sk_col_name, ccb_col_name):
     """Field is remapped as follows:
     'Head of Household' -> 'Primary contact',
@@ -603,6 +632,10 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
     'Son' -> 'Child',
     'Daughter' -> 'Child',
     <anything_else> -> 'Other'"""
+
+    # This tracker could be placed in *any* one and only one convert_xxx() method to figure out progress.
+    # This one was randomly chosen
+    conversion_tracker(row)
 
     convert_dict = {
         'Head of Household': 'Primary contact',
@@ -767,6 +800,9 @@ def handle_field_mappings(table):
 
     g.header_comments = {}
     g.conversion_traces = {}
+
+    # Mark start time and number of rows that we're converting
+    init_conversion_tracker(table)
 
     # Layout of field_mappings list of tuples below is:
     #
@@ -946,6 +982,10 @@ def handle_field_mappings(table):
 
         if val_field_custom_or_process_queue is not None:
             add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
+
+    # This must be 'last' conversion so that it picks up errors recorded in prior conversions
+    table = petl.addfield(table, 'conversion trace', lambda rec: ';'.join(g.conversion_traces[rec['Individual ID']]) \
+        if rec['Individual ID'] in g.conversion_traces else '')
 
     return table
 
