@@ -697,18 +697,6 @@ def convert_listed(value, row, sk_col_name, ccb_col_name):
     return ''
 
 
-def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
-    """This field which is remapped as follows:
-    'Yes' -> '' (empty string),
-    'No' -> 'Yes'."""
-
-    convert_dict = {
-        'Yes': '',
-        'No': 'Yes'
-    }
-    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
-
-
 def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
     """This field is loaded with 'home phone' value if it's a valid phone number, else 'cell phone' if that's valid,
     and if neither 'home phone' nor 'cell phone' are valid, then this field is blank"""
@@ -724,6 +712,8 @@ def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_gender(value, row, sk_col_name, ccb_col_name):
+    """This field is loaded with 'male' or 'female', or with '' if unknown/other value in Servant Keeper."""
+
     convert_dict = {
         'Male': 'male',
         'Female': 'female'
@@ -732,13 +722,72 @@ def convert_gender(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_marital_status(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    """This field is remapped as follows:
+    'Divorced' -> 'divorced',
+    'Separated' -> 'separated',
+    'Married' -> 'married',
+    'Single' -> 'single',
+    'Widowed' -> 'widowed'
+    <anything_else> -> '' (empty string)."""
+
+    convert_dict = {
+        'Divorced': 'divorced',
+        'Separated': 'separated',
+        'Married': 'married',
+        'Single': 'single',
+        'Widowed': 'widowed'
+    }
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
 def convert_membership_type(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    """This field has a complex mapping which is basically as follows:
+    'Active Member' -> 'Member - Active',
+    'Inactive Member' -> 'Member - Inactive',
+    'Regular Attendee' -> 'Regular Attendee',
+    'Visitor' -> 'Guest',
+    'Non-Member (How Sourced ? <> 'Donation...')' -> 'Friend',
+    'Non-Member (How Sourced ? == 'Donation...')' -> 'Donor',
+    'Pastor' -> 'Pastor',
+    'Deceased - Member' -> 'Member - Inactive',
+    'Deceased - Non-Member' -> 'Friend',
+    'None' -> '' (blank),
+    'No Longer Attend' -> 'Friend',
+    'Transferred out to other UMC' -> 'Friend',
+    'Transferred out to Non UMC' -> 'Friend',
+    'Withdrawal' -> 'Friend',
+    'Charge Conf. Removal' -> 'Friend'
+    'Archives (Red Book)' -> '' (blank)."""
+
+    global g
+    new_value = g.xref_member_fields[row['Member Status']]['membership type']
+    if callable(new_value):
+        new_value = new_value(row)
+    return new_value
+
+
+def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
+    """Based on the following values of Servant Keeper's 'Member Status' field, this field is mapped as follows:
+    'Active Member' -> '' (empty, i.e. active so retain),
+    'Inactive Member' -> '' (empty, i.e. active so retain),
+    'Regular Attendee' -> '' (empty, i.e. active so retain),
+    'Visitor' -> '' (empty, i.e. active so retain),
+    'Non-Member (How Sourced ? <> 'Donation...')' -> '' (empty, i.e. active so retain),
+    'Non-Member (How Sourced ? == 'Donation...')' -> '' (empty, i.e. active so retain),
+    'Pastor' -> '' (empty, i.e. active so retain),
+    'Deceased - Member' -> 'yes' (i.e. inactive so remove),
+    'Deceased - Non-Member' -> 'yes' (i.e. inactive so remove),
+    'None' -> 'yes' (i.e. inactive so remove),
+    'No Longer Attend' -> '' (empty, i.e. active so retain),
+    'Transferred out to other UMC' -> 'yes' (i.e. inactive so remove),
+    'Transferred out to Non UMC' -> 'yes' (i.e. inactive so remove),
+    'Withdrawal' -> '' (empty, i.e. active so retain)...AndyF comment - shouldn't this become remove/inactive???,
+    'Charge Conf. Removal' -> 'yes' (i.e. inactive so remove),
+    'Archives (Red Book)' -> 'yes' (i.e. inactive so remove)."""
+
+    global g
+    new_value = g.xref_member_fields[row['Member Status']]['inactive/remove']
+    return new_value
 
 
 def convert_baptized(value, row, sk_col_name, ccb_col_name):
