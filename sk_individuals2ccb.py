@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-import sys, getopt, os.path, csv, argparse, petl, re, datetime, time
+import sys, getopt, os.path, csv, argparse, petl, re, datetime, time, shutil, tempfile
 from collections import namedtuple
 
 
@@ -67,11 +67,31 @@ def main(argv):
 
     trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
 
-    print g.header_comments
+    # print g.header_comments
 
     petl.tocsv(table, g.args.output_filename)
 
+    insert_header_comments(table, g.args.output_filename)
+
     trace('OUTPUT TO CSV COMPLETE.  DONE!', banner=True)
+
+
+def insert_header_comments(table, filename):
+    global g
+    table_header = petl.header(table)
+    prepended_header = [g.header_comments[x] if x in g.header_comments else '' for x in table_header]
+    with tempfile.NamedTemporaryFile(delete=False) as temp:
+        tmp_filename = temp.name
+        temp.close()
+    with open(tmp_filename, 'wb') as csvfile_w:
+        csv_writer = csv.writer(csvfile_w)
+        csv_writer.writerow(prepended_header)
+        with open(filename, 'rb') as csvfile_r:
+            csv_reader = csv.reader(csvfile_r)
+            for row in csv_reader:
+                csv_writer.writerow(row)
+    os.rename(filename, filename+'.bak')
+    os.rename(tmp_filename, filename)
 
 
 def trace(msg_str, banner=False):
@@ -531,7 +551,7 @@ def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
 
 def convert_date(value, row, sk_col_name, ccb_col_name):
     """If this field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained,
-    else it is set to ''"""
+    else it is set to '' (empty string)."""
 
     try:
         datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
@@ -552,7 +572,7 @@ def convert_date(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_phone(value, row, sk_col_name, ccb_col_name):
-    """If this field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to ''"""
+    """If this field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to '' (empty string)."""
 
     regex_phone = r'^\d{3}\-\d{3}\-\d{4}$'
     match = re.search(regex_phone, value)
@@ -598,7 +618,7 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
     'Spouse' -> 'Spouse',
     'Son' -> 'Child',
     'Daughter' -> 'Child',
-    <anything_else> -> 'Other'"""
+    <anything_else> -> 'Other'."""
 
     # This tracker could be placed in *any* one and only one convert_xxx() method to figure out progress.
     # This one was randomly chosen
@@ -621,7 +641,7 @@ def convert_prefix(value, row, sk_col_name, ccb_col_name):
     'Pastor' -> 'Pastor',
     'Ms.' -> 'Ms.',
     'Mrs.' -> 'Mrs.',
-    <anything_else> -> ''"""
+    <anything_else> -> '' (empty string)."""
 
     convert_dict = {
         'Rev.': 'Rev.',
@@ -642,7 +662,7 @@ def convert_suffix(value, row, sk_col_name, ccb_col_name):
     'III' -> 'III',
     'IV' -> 'IV',
     'Dr.' -> 'Dr.',
-    <anything_else> -> ''"""
+    <anything_else> -> '' (empty string)."""
 
     convert_dict = {
         'Jr.': 'Jr.',
@@ -662,8 +682,8 @@ def convert_listed(value, row, sk_col_name, ccb_col_name):
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
     """This field which is remapped as follows:
-    'Yes' -> '',
-    'No' -> 'Yes'"""
+    'Yes' -> '' (empty string),
+    'No' -> 'Yes'."""
     convert_dict = {
         'Yes': '',
         'No': 'Yes'
@@ -1011,7 +1031,7 @@ def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter
     trace("Adding empty column '" + val_field_ccb_name + "', and then converting")
     header_str = val_field_converter_method.__doc__
     if header_str:
-        add_header_comment(header_str)
+        add_header_comment(header_str + ' ')
     table = petl.addfield(table, val_field_ccb_name, '')
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
         sk_col_name=None, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
