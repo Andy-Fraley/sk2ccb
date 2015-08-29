@@ -7,15 +7,14 @@ from collections import namedtuple
 
 # Fake class only for purpose of limiting global namespace to the 'g' object
 class g:
+    args = None
     xref_member_fields = None
     xref_how_sourced = None
     xref_w2s_skills_sgifts = None
     hitmiss_counters = None
     semicolon_sep_fields = None
-    args = None
+    header_comments = None
     conversion_traces = None
-    current_ccb_column = None
-    current_sk_column = None
     conversion_row_num = None
     start_conversion_time = None
     total_rows = None
@@ -62,42 +61,33 @@ def main(argv):
     #    for item in hitmiss_counters[sk_field]:
     #        print >> sys.stderr, sk_field + ';' + item + ';' + str(hitmiss_counters[sk_field][item])
 
-    if g.args.trace:
-        print
-        print '*************************************************************************************************' \
-            '**********************'
-        print '*** SETTING UP COLUMNS FOR CONVERSION...'
-        print '*************************************************************************************************' \
-            '**********************'
-        print
+    trace('SETTING UP COLUMNS FOR CONVERSION...', banner=True)
 
     table = setup_column_conversions(table)
 
-    if g.args.trace:
-        print
-        print '*************************************************************************************************' \
-            '**********************'
-        print '*** BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...'
-        print '*************************************************************************************************' \
-            '**********************'
-        print
+    trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
 
-    # print g.header_comments
-    # TODO!  Emit g.header_comments as first row
+    print g.header_comments
 
     petl.tocsv(table, g.args.output_filename)
 
-    # print g.conversion_traces
+    trace('OUTPUT TO CSV COMPLETE.  DONE!', banner=True)
 
+
+def trace(msg_str, banner=False):
+    global g
     if g.args.trace:
-        print
-        print '*************************************************************************************************' \
-            '**********************'
-        print '*** OUTPUT TO CSV COMPLETE.  DONE!'
-        print '*************************************************************************************************' \
-            '**********************'
-        print
-
+        if banner:
+            print
+            print '*************************************************************************************************' \
+                '**********************'
+            print '*** ' + msg_str
+        else:
+            print msg_str
+        if banner:
+            print '*************************************************************************************************' \
+                '**********************'
+            print
 
 
 #######################################################################################################################
@@ -536,14 +526,12 @@ def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
     else:
         prefix_str = "Converting blank '" + ccb_col_name + "'. "
     g.conversion_traces[indiv_id].append(prefix_str + msg_str)
-    if g.args.trace:
-        print "*** Conversion warning. " + member_str + prefix_str + msg_str
+    trace('*** Conversion warning. ' + member_str + prefix_str + msg_str)
 
 
 def convert_date(value, row, sk_col_name, ccb_col_name):
-    """Field is converted as follows:
-    If field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained, else
-    it is set to ''"""
+    """If this field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained,
+    else it is set to ''"""
 
     try:
         datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
@@ -564,8 +552,7 @@ def convert_date(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_phone(value, row, sk_col_name, ccb_col_name):
-    """Field is converted as follows:
-    If field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to ''"""
+    """If this field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to ''"""
 
     regex_phone = r'^\d{3}\-\d{3}\-\d{4}$'
     match = re.search(regex_phone, value)
@@ -594,14 +581,8 @@ def conversion_tracker(row):
         if g.args.trace:
             elapsed_time_in_secs = int(time.time() - g.start_conversion_time)
             remaining_secs = (g.total_rows - g.conversion_row_num) * elapsed_time_in_secs / g.conversion_row_num
-            print
-            print '*************************************************************************************************' \
-                '**********************'
-            print '*** CONVERSION PROGRESS: Row ' + str(g.conversion_row_num) + ' of ' + str(g.total_rows) + \
-                '. Estimated ' + str(remaining_secs) + ' seconds remaining.'
-            print '*************************************************************************************************' \
-                '**********************'
-            print
+            trace('CONVERSION PROGRESS: Row ' + str(g.conversion_row_num) + ' of ' + str(g.total_rows) + \
+                '. Estimated ' + str(remaining_secs) + ' seconds remaining.', banner=True)
 
 
 def init_conversion_tracker(table):
@@ -612,7 +593,7 @@ def init_conversion_tracker(table):
 
 
 def convert_family_position(value, row, sk_col_name, ccb_col_name):
-    """Field is remapped as follows:
+    """This field is remapped as follows:
     'Head of Household' -> 'Primary contact',
     'Spouse' -> 'Spouse',
     'Son' -> 'Child',
@@ -633,7 +614,7 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_prefix(value, row, sk_col_name, ccb_col_name):
-    """Field is remapped as follows:
+    """This field is remapped as follows:
     'Rev.' -> 'Rev.',
     'Dr.' -> 'Dr.',
     'Mr.' -> 'Mr.',
@@ -654,7 +635,7 @@ def convert_prefix(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_suffix(value, row, sk_col_name, ccb_col_name):
-    """Field which is remapped as follows:
+    """This field is remapped as follows:
     'Jr.' -> 'Jr.',
     'Sr.' -> 'Sr.',
     'II' -> 'II',
@@ -680,7 +661,7 @@ def convert_listed(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
-    """Field which is remapped as follows:
+    """This field which is remapped as follows:
     'Yes' -> '',
     'No' -> 'Yes'"""
     convert_dict = {
@@ -926,15 +907,12 @@ def setup_column_conversions(table):
     for field_map_list in field_mappings:
 
         val_field_ccb_name = field_map_list[field_ccb_name]
-        g.current_ccb_column = val_field_ccb_name
-
         val_field_sk_name = None
         val_field_converter_method = None
         val_field_custom_or_process_queue = None
 
         if len(field_map_list) > 1:
             val_field_sk_name = field_map_list[field_sk_name]
-            g.current_sk_column = val_field_sk_name
         if len(field_map_list) > 2:
             val_field_converter_method = field_map_list[field_converter_method]
         if len(field_map_list) > 3:
@@ -976,24 +954,29 @@ def setup_column_conversions(table):
     return table
 
 
+def add_header_comment(val_field_ccb_name, header_str):
+    global g
+    if val_field_ccb_name not in g.header_comments:
+        g.header_comments[val_field_ccb_name] = ''
+    g.header_comments[val_field_ccb_name] += header_str
+
+
 def add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue):
     global g
     map_field_to_comment = {
-        'custom-pulldown': 'This field is a CCB custom pulldown field',
-        'custom-text': 'This field is a CCB custom text field',
-        'custom-date': 'This field is a CCB custom date field',
-        'process_queue': 'This field is a CCB process queue data field'
+        'custom-pulldown': 'This field is a CCB custom pulldown field. ',
+        'custom-text': 'This field is a CCB custom text field. ',
+        'custom-date': 'This field is a CCB custom date field. ',
+        'process_queue': 'This field is a CCB process queue data field. '
     }
     assert val_field_custom_or_process_queue in map_field_to_comment
-    if val_field_ccb_name not in g.header_comments:
-        g.header_comments[val_field_ccb_name] = ''
-    g.header_comments[val_field_ccb_name] += map_field_to_comment[val_field_custom_or_process_queue]
+    add_header_comment(val_field_ccb_name, map_field_to_comment[val_field_custom_or_process_queue])
 
 
 def add_empty_column(table, val_field_ccb_name):
     assert isinstance(val_field_ccb_name, basestring)
-    if g.args.trace:
-        print "Adding empty column '" + val_field_ccb_name + "'"
+    trace("Adding empty column '" + val_field_ccb_name + "'")
+    add_header_comment(val_field_ccb_name, 'Servant Keeper has no data for this field. Leaving it blank. ')
     table = petl.addfield(table, val_field_ccb_name, '')
     return table
 
@@ -1001,8 +984,9 @@ def add_empty_column(table, val_field_ccb_name):
 def add_fixed_string_column(table, val_field_ccb_name, fixed_string):
     assert isinstance(val_field_ccb_name, basestring)
     assert isinstance(fixed_string, basestring)
-    if g.args.trace:
-        print "Adding fixed string column '" + val_field_ccb_name + "', with value '" + fixed_string + "'"
+    trace("Adding fixed string column '" + val_field_ccb_name + "', with value '" + fixed_string + "'")
+    add_header_comment(val_field_ccb_name, 'Servant Keeper has no data for this field. We are loading it ' \
+        "with fixed value '" + fixed_string + "'. ")
     table = petl.addfield(table, val_field_ccb_name, fixed_string)
     return table
 
@@ -1010,8 +994,9 @@ def add_fixed_string_column(table, val_field_ccb_name, fixed_string):
 def add_cloned_column(table, val_field_ccb_name, val_field_sk_name):
     assert isinstance(val_field_ccb_name, basestring)
     assert isinstance(val_field_sk_name, basestring)
-    if g.args.trace:
-        print "Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + "'"
+    trace("Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + "'")
+    add_header_comment(val_field_ccb_name, "This field is cloned from Servant Keeper's '" + val_field_sk_name + \
+        "' column. ")
     table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
     return table
 
@@ -1023,11 +1008,13 @@ def wrapped_converter_method(converter_method, sk_col_name=None, ccb_col_name=No
 def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method):
     assert isinstance(val_field_ccb_name, basestring)
     assert callable(val_field_converter_method)
-    if g.args.trace:
-        print "Adding empty column '" + val_field_ccb_name + "', and then converting"
+    trace("Adding empty column '" + val_field_ccb_name + "', and then converting")
+    header_str = val_field_converter_method.__doc__
+    if header_str:
+        add_header_comment(header_str)
     table = petl.addfield(table, val_field_ccb_name, '')
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
-        sk_col_name=g.current_sk_column, ccb_col_name=g.current_ccb_column), pass_row=True, failonerror=True)
+        sk_col_name=None, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
     return table
 
 
@@ -1035,12 +1022,15 @@ def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
     assert isinstance(val_field_ccb_name, basestring)
     assert isinstance(val_field_sk_name, basestring)
     assert callable(val_field_converter_method)
-    if g.args.trace:
-        print "Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + \
-            "', and then converting"
+    trace("Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + \
+        "', and then converting")
+    header_str = "This field is sourced from Servant Keeper's '" + val_field_sk_name + "' column. "
+    if val_field_converter_method.__doc__:
+        header_str += re.sub(r'\n    ', ' ', val_field_converter_method.__doc__)
+    add_header_comment(val_field_ccb_name, header_str)
     table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
-        sk_col_name=g.current_sk_column, ccb_col_name=g.current_ccb_column), pass_row=True, failonerror=True)
+        sk_col_name=val_field_sk_name, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
     return table
 
 
