@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 
-import sys, getopt, os.path, csv, argparse, petl, re, datetime, time, shutil, tempfile
-from collections import namedtuple
+import sys, os.path, csv, argparse, petl, re, datetime, time, shutil, tempfile
 
 
 # Fake class only for purpose of limiting global namespace to the 'g' object
@@ -528,7 +527,7 @@ def get_date_of_death(row):
 
 
 #######################################################################################################################
-# Field converter methods
+# Field converter helpers
 #######################################################################################################################
 
 def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
@@ -549,46 +548,13 @@ def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
     trace('*** Conversion warning. ' + member_str + prefix_str + msg_str)
 
 
-def convert_date(value, row, sk_col_name, ccb_col_name):
-    """If this field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained,
-    else it is set to '' (empty string)."""
-
-    try:
-        datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
-        validDate = True
-    except ValueError:
-        validDate = False
-    except:
-        raise
-
-    if not validDate:
-        new_value = ''
-        if not re.match(r'\s+/\s+/\s+', value):
-            conversion_trace(row, "Blanked invalid date: '" + value + "'", sk_col_name, ccb_col_name)
-    else:
-        new_value = value
-
-    return new_value
-
-
-def convert_phone(value, row, sk_col_name, ccb_col_name):
-    """If this field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to '' (empty string)."""
-
-    regex_phone = r'^\d{3}\-\d{3}\-\d{4}$'
-    match = re.search(regex_phone, value)
-    if match is not None:
-        new_value = value
-    else:
-        new_value = ''
-        if not re.match(r'\s+\-\s+\-\s+', value):
-            conversion_trace(row, "Blanked invalid phone number: '" + value + "'", sk_col_name, ccb_col_name)
-    return new_value
-
-
-def convert_using_dict_map(value, convert_dict, other):
+def conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, other, trace_other=False):
     if value in convert_dict:
         return convert_dict[value]
     elif other is not None:
+        if trace_other and other:
+            conversion_trace(row, "'" + value + "' is not a valid '" + ccb_col_name + "', so set to '" + other + "'.",
+                 sk_col_name, ccb_col_name)
         return other
     else:
         raise KeyError(value)
@@ -612,6 +578,55 @@ def init_conversion_tracker(table):
     g.total_rows = petl.nrows(table)
 
 
+def is_date_valid(date_string):
+    try:
+        datetime.datetime.strptime(date_string.strip(), '%m/%d/%Y')
+        return True
+    except ValueError:
+        return False
+    except:
+        raise
+
+
+def is_phone_valid(phone_string):
+    regex_phone = r'^\d{3}\-\d{3}\-\d{4}$'
+    match = re.search(regex_phone, phone_string)
+    if match is not None:
+        return True
+    else:
+        return False
+
+    
+#######################################################################################################################
+# Field converter methods (convert_xyz)
+#######################################################################################################################
+
+def convert_date(value, row, sk_col_name, ccb_col_name):
+    """If this field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained,
+    else it is set to '' (empty string)."""
+
+    if not is_date_valid(value):
+        new_value = ''
+        if not re.match(r'\s+/\s+/\s+', value):
+            conversion_trace(row, "Blanked invalid date: '" + value + "'", sk_col_name, ccb_col_name)
+    else:
+        new_value = value
+
+    return new_value
+
+
+def convert_phone(value, row, sk_col_name, ccb_col_name):
+    """If this field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to '' (empty string)."""
+
+    if is_phone_valid(value):
+        new_value = value
+    else:
+        new_value = ''
+        if not re.match(r'\s+\-\s+\-\s+', value):
+            conversion_trace(row, "Blanked invalid phone number: '" + value + "'", sk_col_name, ccb_col_name)
+    return new_value
+
+
 def convert_family_position(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
     'Head of Household' -> 'Primary contact',
@@ -622,6 +637,8 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
 
     # This tracker could be placed in *any* one and only one convert_xxx() method to figure out progress.
     # This one was randomly chosen
+    #
+    # NOTE:  PETL has petl.progress() and other supporting methods to do progress tracking
     conversion_tracker(row)
 
     convert_dict = {
@@ -630,7 +647,7 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
         'Son': 'Child',
         'Daughter': 'Child'
     }
-    return convert_using_dict_map(value, convert_dict, 'Other')
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, 'Other', trace_other=True)
 
 
 def convert_prefix(value, row, sk_col_name, ccb_col_name):
@@ -651,7 +668,7 @@ def convert_prefix(value, row, sk_col_name, ccb_col_name):
         'Ms.': 'Ms.',
         'Mrs.': 'Mrs.'
     }
-    return convert_using_dict_map(value, convert_dict, '')
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
 def convert_suffix(value, row, sk_col_name, ccb_col_name):
@@ -672,113 +689,126 @@ def convert_suffix(value, row, sk_col_name, ccb_col_name):
         'IV': 'IV',
         'Dr.': 'Dr.',
     }
-    return convert_using_dict_map(value, convert_dict, '')
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
 def convert_listed(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return''
+    """By leaving this column blank (and not 'yes'), we intend for all users to be Basic Users."""
+    return ''
 
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
     """This field which is remapped as follows:
     'Yes' -> '' (empty string),
     'No' -> 'Yes'."""
+
     convert_dict = {
         'Yes': '',
         'No': 'Yes'
     }
-    return convert_using_dict_map(value, convert_dict, None)
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
 
 def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return''
+    """This field is loaded with 'home phone' value if it's a valid phone number, else 'cell phone' if that's valid,
+    and if neither 'home phone' nor 'cell phone' are valid, then this field is blank"""
+
+    home_phone_valid = is_phone_valid(row['Home Phone'])
+    cell_phone_valid = is_phone_valid(row['Cell Phone'])
+    if home_phone_valid:
+        return row['Home Phone']
+    elif cell_phone_valid:
+        return row['Cell Phone']
+    else:
+        return ''
 
 
 def convert_gender(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return''
+    convert_dict = {
+        'Male': 'male',
+        'Female': 'female'
+    }
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
 def convert_marital_status(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_membership_type(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_baptized(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_notes(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_approved_to_work_with_children(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_approved_to_work_with_children_stop_date(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_spiritual_gifts(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_passions(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_confirmed(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_spirit_mailing(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_photo_release(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def convert_ethnicity(value, row, sk_col_name, ccb_col_name):
     # TODO
-    return''
+    return ''
 
 
 def setup_column_conversions(table):
@@ -967,7 +997,7 @@ def setup_column_conversions(table):
         if val_field_custom_or_process_queue is not None:
             add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
 
-    # This must be 'last' conversion so that it picks up errors recorded in prior conversions
+    # This must be 'last' conversion so that it picks up warnings recorded in prior conversions
     table = petl.addfield(table, 'conversion trace', lambda rec: ';'.join(g.conversion_traces[rec['Individual ID']]) \
         if rec['Individual ID'] in g.conversion_traces else '')
 
@@ -1031,7 +1061,7 @@ def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter
     trace("Adding empty column '" + val_field_ccb_name + "', and then converting")
     header_str = val_field_converter_method.__doc__
     if header_str:
-        add_header_comment(header_str + ' ')
+        add_header_comment(val_field_ccb_name, header_str + ' ')
     table = petl.addfield(table, val_field_ccb_name, '')
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
         sk_col_name=None, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
