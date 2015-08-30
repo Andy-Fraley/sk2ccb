@@ -438,66 +438,6 @@ def get_xref_member_fields():
 
 
 #######################################################################################################################
-# 'XRef-Member Status' getters
-#######################################################################################################################
-
-def get_membership_type(row):
-    global g
-
-    value = g.xref_member_fields[row['Member Status']]['membership type']
-    if callable(value):
-        value = value(row)
-
-    return value
-
-
-def get_inactive_remove(row):
-    global g
-
-    value = g.xref_member_fields[row['Member Status']]['inactive/remove']
-
-    return value
-
-
-def get_membership_date(row):
-    global g
-
-    value = g.xref_member_fields[row['Member Status']]['membership date']
-    if callable(value):
-        value = value(row)
-
-    return value
-
-
-def get_reason_left(row):
-    global g
-
-    value = g.xref_member_fields[row['Member Status']]['reason left']
-
-    return value
-
-
-def get_membership_stop_date(row):
-    global g
-
-    value = g.xref_member_fields[row['Member Status']]['membership stop date']
-    if callable(value):
-        value = value(row)
-
-    return value
-
-
-def get_deceased(row):
-    global g
-
-    value = g.xref_member_fields[row['Member Status']]['deceased']
-    if callable(value):
-        value = value(row)
-
-    return value
-
-
-#######################################################################################################################
 # 'XRef-Member Status' row utilities
 #######################################################################################################################
 
@@ -509,21 +449,15 @@ def get_sourced_donor(row):
 
 
 def get_date_joined(row):
-    date_joined = row['Date Joined']
-    date_joined = re.sub(r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)', '', date_joined)  # Strip blank or invalid dates
-    return date_joined
+    return row['Date Joined']
 
 
 def get_trf_out_date(row):
-    trf_out_date = row['Trf out/Withdrawal Date']
-    trf_out_date = re.sub(r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)', '', trf_out_date)  # Strip blank or invalid dates
-    return trf_out_date
+    return row['Trf out/Withdrawal Date']
 
 
 def get_date_of_death(row):
-    date_of_death = row['Date of Death']
-    date_of_death = re.sub(r'^(\s+/\s+/\s+)|(\d{1,2}/\d{1,2}/\s+)', '', date_of_death)  # Strip blank or invalid dates
-    return date_of_death
+    return row['Date of Death']
 
 
 #######################################################################################################################
@@ -578,16 +512,6 @@ def init_conversion_tracker(table):
     g.total_rows = petl.nrows(table)
 
 
-def is_date_valid(date_string):
-    try:
-        datetime.datetime.strptime(date_string.strip(), '%m/%d/%Y')
-        return True
-    except ValueError:
-        return False
-    except:
-        raise
-
-
 def is_phone_valid(phone_string):
     regex_phone = r'^\d{3}\-\d{3}\-\d{4}$'
     match = re.search(regex_phone, phone_string)
@@ -595,6 +519,14 @@ def is_phone_valid(phone_string):
         return True
     else:
         return False
+
+
+def xref_member_field_value(row, field_str):
+    global g
+    new_value = g.xref_member_fields[row['Member Status']][field_str]
+    if callable(new_value):
+        new_value = new_value(row)
+    return new_value
 
     
 #######################################################################################################################
@@ -605,13 +537,19 @@ def convert_date(value, row, sk_col_name, ccb_col_name):
     """If this field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained,
     else it is set to '' (empty string)."""
 
-    if not is_date_valid(value):
+    try:
+        datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
+        date_valid = True
+    except ValueError:
+        date_valid = False
+    except:
+        raise
+    if not date_valid:
         new_value = ''
-        if not re.match(r'\s+/\s+/\s+', value):
+        if not re.match(r'(\s+/\s+/\s+)|(^$)', value):
             conversion_trace(row, "Blanked invalid date: '" + value + "'", sk_col_name, ccb_col_name)
     else:
         new_value = value
-
     return new_value
 
 
@@ -740,6 +678,16 @@ def convert_marital_status(value, row, sk_col_name, ccb_col_name):
     return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
+def convert_membership_date(value, row, sk_col_name, ccb_col_name):
+    new_value = xref_member_field_value(row, 'membership date')
+    return convert_date(new_value, row, sk_col_name, ccb_col_name)
+
+
+def convert_membership_stop_date(value, row, sk_col_name, ccb_col_name):
+    new_value = xref_member_field_value(row, 'membership stop date')
+    return convert_date(new_value, row, sk_col_name, ccb_col_name)
+
+
 def convert_membership_type(value, row, sk_col_name, ccb_col_name):
     """This field has a complex mapping which is basically as follows:
     'Active Member' -> 'Member - Active',
@@ -821,8 +769,14 @@ def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    global g
+    value = g.xref_member_fields[row['Member Status']]['reason left']
+    return value
+
+
+def convert_deceased(value, row, sk_col_name, ccb_col_name):
+    new_value = xref_member_field_value(row, 'deceased')
+    return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
 
 def convert_spiritual_gifts(value, row, sk_col_name, ccb_col_name):
@@ -930,8 +884,8 @@ def setup_column_conversions(table):
         ['gender', 'Gender', convert_gender],
         ['giving #', 'Env #'],
         ['marital status', 'Marital Status', convert_marital_status],
-        ['membership date', 'Date Joined', convert_date],
-        ['membership stop date', 'Trf out/Withdrawal Date', convert_date],
+        ['membership date', 'Date Joined', convert_membership_date],
+        ['membership stop date', 'Trf out/Withdrawal Date', convert_membership_stop_date],
         ['membership type', None, convert_membership_type],
         ['baptized', 'Baptized', convert_baptized],
         ['school', 'School District'],
@@ -953,7 +907,7 @@ def setup_column_conversions(table):
         ['work postal code'],
         ['Current Story'],
         ['Commitment Story'],
-        ['deceased', 'Date of Death', convert_date],
+        ['deceased', 'Date of Death', convert_deceased],
         ['facebook_username'],
         ['twitter_username'],
         ['blog_username'],
