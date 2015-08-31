@@ -208,6 +208,7 @@ def get_xref_w2s_skills_sgifts():
     }
     return xref_w2s_skills_sgifts_mappings
 
+
 #######################################################################################################################
 # 'XRef-XRef-W2S, Skills, SGifts' hit-miss helper functions
 #######################################################################################################################
@@ -220,6 +221,7 @@ def init_hitmiss_counters(xref_w2s_skills_sgifts_mappings):
         for item in xref_w2s_skills_sgifts_mappings[sk_field]:
             g.hitmiss_counters[sk_field][item] = 0
 
+
 def record_hitmiss(sk_field, item, count):
     global g
     if not sk_field in g.hitmiss_counters:
@@ -227,38 +229,6 @@ def record_hitmiss(sk_field, item, count):
     if not item in g.hitmiss_counters[sk_field]:
         g.hitmiss_counters[sk_field][item] = 0
     g.hitmiss_counters[sk_field][item] += count
-
-
-#######################################################################################################################
-# 'XRef-XRef-W2S, Skills, SGifts' helper functions to add 'passions', 'abilities', and 'spiritual gifts' fields
-#######################################################################################################################
-
-def get_gathered_passions(row):
-    global g
-
-    indiv_id = row['Individual ID']
-    if indiv_id in g.semicolon_sep_fields:
-        return ';'.join(g.semicolon_sep_fields[indiv_id]['passions'])
-    else:
-        return ''
-
-def get_gathered_abilities(row):
-    global g
-
-    indiv_id = row['Individual ID']
-    if indiv_id in g.semicolon_sep_fields:
-        return ';'.join(g.semicolon_sep_fields[indiv_id]['abilities'])
-    else:
-        return ''
-
-def get_gathered_spiritual_gifts(row):
-    global g
-
-    indiv_id = row['Individual ID']
-    if indiv_id in g.semicolon_sep_fields:
-        return ';'.join(g.semicolon_sep_fields[indiv_id]['spiritual gifts'])
-    else:
-        return ''
 
 
 #######################################################################################################################
@@ -285,18 +255,6 @@ def get_xref_how_sourced():
         '': ''
     }
     return xref_how_sourced
-
-
-#######################################################################################################################
-# 'XRef-How Sourced' getters
-#######################################################################################################################
-
-def get_how_they_heard(row):
-    global g
-
-    value = g.xref_how_sourced[row['How Sourced?']]
-
-    return value
 
 
 #######################################################################################################################
@@ -438,7 +396,7 @@ def get_xref_member_fields():
 
 
 #######################################################################################################################
-# 'XRef-Member Status' row utilities
+# 'XRef-Member Status' row getter utilities
 #######################################################################################################################
 
 def get_sourced_donor(row):
@@ -527,6 +485,15 @@ def xref_member_field_value(row, field_str):
     if callable(new_value):
         new_value = new_value(row)
     return new_value
+
+
+def xref_w2s_gather(row, gather_str):
+    global g
+    indiv_id = row['Individual ID']
+    if indiv_id in g.semicolon_sep_fields:
+        return ';'.join(g.semicolon_sep_fields[indiv_id][gather_str])
+    else:
+        return ''
 
     
 #######################################################################################################################
@@ -759,8 +726,9 @@ def convert_approved_to_work_with_children_stop_date(value, row, sk_col_name, cc
 
 
 def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    global g
+    value = g.xref_how_sourced[row['How Sourced?']]
+    return value
 
 
 def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
@@ -780,18 +748,15 @@ def convert_deceased(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_spiritual_gifts(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    return xref_w2s_gather(row, 'spiritual gifts')
 
 
 def convert_passions(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    return xref_w2s_gather(row, 'passions')
 
 
 def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    return xref_w2s_gather(row, 'abilities')
 
 
 def convert_confirmed(value, row, sk_col_name, ccb_col_name):
