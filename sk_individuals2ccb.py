@@ -502,7 +502,7 @@ def xref_w2s_gather(row, gather_str):
 
 def convert_date(value, row, sk_col_name, ccb_col_name):
     """If this field is of exact format 'm/d/yyyy', and 'm', 'd', and 'yyyy' represent a valid date, it is retained,
-    else it is set to '' (empty string)."""
+    else it is set to blank ('')."""
 
     try:
         datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
@@ -521,7 +521,7 @@ def convert_date(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_phone(value, row, sk_col_name, ccb_col_name):
-    """If this field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to '' (empty string)."""
+    """If this field is of exact format 'nnn-nnn-nnnn', it is retained, else it is set to blank ('')."""
 
     if is_phone_valid(value):
         new_value = value
@@ -563,7 +563,7 @@ def convert_prefix(value, row, sk_col_name, ccb_col_name):
         'Pastor' -> 'Pastor',
         'Ms.' -> 'Ms.',
         'Mrs.' -> 'Mrs.',
-        <anything_else> -> '' (empty string)."""
+        <anything_else> -> blank ('')."""
 
     convert_dict = {
         'Rev.': 'Rev.',
@@ -584,7 +584,7 @@ def convert_suffix(value, row, sk_col_name, ccb_col_name):
         'III' -> 'III',
         'IV' -> 'IV',
         'Dr.' -> 'Dr.',
-        <anything_else> -> '' (empty string)."""
+        <anything_else> -> blank ('')."""
 
     convert_dict = {
         'Jr.': 'Jr.',
@@ -599,6 +599,7 @@ def convert_suffix(value, row, sk_col_name, ccb_col_name):
 
 def convert_listed(value, row, sk_col_name, ccb_col_name):
     """By leaving this column blank (and not 'yes'), we intend for all users to be Basic Users."""
+
     return ''
 
 
@@ -633,7 +634,7 @@ def convert_marital_status(value, row, sk_col_name, ccb_col_name):
         'Married' -> 'married',
         'Single' -> 'single',
         'Widowed' -> 'widowed'
-        <anything_else> -> '' (empty string)."""
+        <anything_else> -> blank ('')."""
 
     convert_dict = {
         'Divorced': 'divorced',
@@ -646,11 +647,20 @@ def convert_marital_status(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_membership_date(value, row, sk_col_name, ccb_col_name):
+    """If person was *ever* a member current or prior (i.e. Servant Keeper's 'Member Status' is one of:
+    'Active Member', 'Inactive Member', 'Deceased - Member', 'Transferred out to other UMC',
+    'Transferred out to Non UMC', 'Withdrawal', 'Charge Conf. Removal') then this date is set Servant Keeper's
+    'Date Joined', else it is set to blank ('')"""
+
     new_value = xref_member_field_value(row, 'membership date')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
 
 def convert_membership_stop_date(value, row, sk_col_name, ccb_col_name):
+    """If person was a prior member (i.e. Servant Keeper's 'Member Status' is one of: 'Transferred out to other UMC',
+    'Transferred out to Non UMC', 'Withdrawal', 'Charge Conf. Removal'), then this date is set to Servant Keeper's
+    'Trf out/Withdrawal Date', else it is set to blank ('')"""
+
     new_value = xref_member_field_value(row, 'membership stop date')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
@@ -683,20 +693,20 @@ def convert_membership_type(value, row, sk_col_name, ccb_col_name):
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
     """Based on the following values of Servant Keeper's 'Member Status' field, this field is mapped as follows:
-        'Active Member' -> '' (empty, i.e. active so retain),
-        'Inactive Member' -> '' (empty, i.e. active so retain),
-        'Regular Attendee' -> '' (empty, i.e. active so retain),
-        'Visitor' -> '' (empty, i.e. active so retain),
-        'Non-Member (How Sourced ? <> 'Donation...')' -> '' (empty, i.e. active so retain),
-        'Non-Member (How Sourced ? == 'Donation...')' -> '' (empty, i.e. active so retain),
-        'Pastor' -> '' (empty, i.e. active so retain),
+        'Active Member' -> blank ('', i.e. active so retain),
+        'Inactive Member' -> blank ('', i.e. active so retain),
+        'Regular Attendee' -> blank ('', i.e. active so retain),
+        'Visitor' -> blank ('', i.e. active so retain),
+        'Non-Member (How Sourced ? <> 'Donation...')' -> blank ('', i.e. active so retain),
+        'Non-Member (How Sourced ? == 'Donation...')' -> blank ('', i.e. active so retain),
+        'Pastor' -> blank ('', i.e. active so retain),
         'Deceased - Member' -> 'yes' (i.e. inactive so remove),
         'Deceased - Non-Member' -> 'yes' (i.e. inactive so remove),
         'None' -> 'yes' (i.e. inactive so remove),
-        'No Longer Attend' -> '' (empty, i.e. active so retain),
+        'No Longer Attend' -> blank ('', i.e. active so retain),
         'Transferred out to other UMC' -> 'yes' (i.e. inactive so remove),
         'Transferred out to Non UMC' -> 'yes' (i.e. inactive so remove),
-        'Withdrawal' -> '' (empty, i.e. active so retain)...AndyF comment - shouldn't this become remove/inactive???,
+        'Withdrawal' -> blank ('', i.e. active so retain)...AndyF comment - shouldn't this become remove/inactive???,
         'Charge Conf. Removal' -> 'yes' (i.e. inactive so remove),
         'Archives (Red Book)' -> 'yes' (i.e. inactive so remove)."""
 
@@ -726,6 +736,19 @@ def convert_approved_to_work_with_children_stop_date(value, row, sk_col_name, cc
 
 
 def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
+    """This field is mapped based on Servant Keeper's 'How Sourced' column as follows:
+        'Acts of God' -> 'Event: Acts of God',
+        'Vacation Bible School' -> 'Event: Children',
+        'Donation - Ingomar Living Water' -> 'Event: Living Water',
+        'Rummage Sale' -> 'Event: Rummage Sale',
+        'Wellness Ministry' -> 'Event: Wellness',
+        'Philippi' -> 'Event: Youth',
+        'Youth Group' -> 'Event: Youth',
+        'Baptism' -> 'Other',
+        'Donation - Non-Outreach' -> 'Other',
+        'Other' -> 'Other',
+        'Small Group' -> 'Small Group'."""
+
     global g
     value = g.xref_how_sourced[row['How Sourced?']]
     return value
@@ -737,25 +760,97 @@ def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
+    """If person was formerly a member or regular attender (i.e. Servant Keeper's 'Member Status' is one of:
+    'Deceased - Member', 'No Longer Attend', 'Transferred out to other UMC', 'Transferred out to Non UMC',
+    'Withdrawal', 'Withdrawal', 'Archives (Red Book)'), then this field is mapped from Servant Keeper's
+    'Member Status' field as follows:
+        'Deceased - Member' -> 'Deceased',
+        'No Longer Attend' -> 'No Longer Attend',
+        'Transferred out to other UMC' -> 'Transferred out to other UMC',
+        'Transferred out to Non UMC' -> 'Transferred out to Non UMC',
+        'Withdrawal' -> 'Withdrawal',
+        'Charge Conf. Removal' -> 'Charge Conf. Removal',
+        'Archives (Red Book)', -> 'Archives (Red Book)'."""
+
     global g
     value = g.xref_member_fields[row['Member Status']]['reason left']
     return value
 
 
 def convert_deceased(value, row, sk_col_name, ccb_col_name):
+    """If person was a member or non-member who has died (i.e. Servant Keeper's 'Member Status' field is one of:
+    'Deceased - Member', 'Deceased - Non-Member'), this field is set to Servant Keeper's 'Date of Death' field,
+    else it is set to blank ('')."""
     new_value = xref_member_field_value(row, 'deceased')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
 
 def convert_spiritual_gifts(value, row, sk_col_name, ccb_col_name):
+    """This field is mapped based on *both* Servant Keeper's 'Skills' and 'Spiritual Gifts' fields as follows:
+        SK Skills 'Encouragement' -> 'Encouragement',
+        SK Skills 'Giving' -> 'Giving',
+        SK Skills 'Prayer' -> 'Intercession',
+        SK Spiritual Gifts 'Administration' -> 'Administration',
+        SK Spiritual Gifts 'Apostleship' -> 'Apostleship',
+        SK Spiritual Gifts 'Craftsmanship' -> 'Craftsmanship',
+        SK Spiritual Gifts 'Discernment' -> 'Discernment',
+        SK Spiritual Gifts 'Encouragement' -> 'Encouragement',
+        SK Spiritual Gifts 'Evangelism' -> 'Evangelism',
+        SK Spiritual Gifts 'Faith' -> 'Faith',
+        SK Spiritual Gifts 'Giving' -> 'Giving',
+        SK Spiritual Gifts 'Helps' -> 'Helps',
+        SK Spiritual Gifts 'Hospitality' -> 'Hospitality',
+        SK Spiritual Gifts 'Intercession' -> 'Intercession',
+        SK Spiritual Gifts 'Knowledge' -> 'Knowledge',
+        SK Spiritual Gifts 'Leadership' -> 'Leadership',
+        SK Spiritual Gifts 'Mercy' -> 'Mercy',
+        SK Spiritual Gifts 'Prophecy' -> 'Prophecy',
+        SK Spiritual Gifts 'Teaching' -> 'Teaching',
+        SK Spiritual Gifts 'Wisdom' -> 'Wisdom'."""
+
     return xref_w2s_gather(row, 'spiritual gifts')
 
 
 def convert_passions(value, row, sk_col_name, ccb_col_name):
+    """This field is mapped based on *both* Servant Keeper's 'Willing to Serve' and 'Skills' fields as follows:
+        SK Willing to Serve 'Acts of God Drama Ministry' -> 'Activity: Drama',
+        SK Willing to Serve 'Faith Place' -> 'People: Children',
+        SK Willing to Serve 'High-School Small-Group Facilitator' -> 'People: Young Adults',
+        SK Willing to Serve 'High-School Youth Group Ldr/Chaperone' -> 'People: Young Adults',
+        SK Willing to Serve 'Kids Zone' -> 'People: Children',
+        SK Willing to Serve 'Middle-School Small-Group Facilitator' -> 'People: Children',
+        SK Willing to Serve 'Middle-School Youth Group Ldr/Chaperone' -> 'People: Children',
+        SK Willing to Serve 'Nursery Helper' -> 'People: Infants/Toddlers',
+        SK Willing to Serve 'Outreach - International - Mission trip' -> 'Activity: Global Missions',
+        SK Willing to Serve 'Outreach - Local - for adults' -> 'Activity: Local Outreach',
+        SK Willing to Serve 'Outreach - Local - for familiies/children' -> 'Activity: Local Outreach',
+        SK Willing to Serve 'Outreach - Local - Mission trip' -> 'Activity: Local Outreach',
+        SK Willing to Serve 'Outreach - U.S. - Mission trip' -> 'Activity: Regional Outreach',
+        SK Willing to Serve 'Vacation Bible School' -> 'People: Children',
+        SK Willing to Serve 'Visit home-bound individuals' -> 'People: Seniors',
+        SK Skills 'Drama' -> 'Activity: Drama'."""
+
     return xref_w2s_gather(row, 'passions')
 
 
 def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
+    """This field is mapped based on *both* Servant Keeper's 'Willing to Serve' and 'Skills' fields as follows:
+        SK Willing to Serve 'Bake or Prepare Food' -> 'Skill: Cooking/Baking',
+        SK Willing to Serve 'Choir' -> 'Arts: Vocalist',
+        SK Willing to Serve 'Liturgical Dance Ministry' -> 'Arts: Dance',
+        SK Skills 'Compassion / Listening Skills' -> 'Skill: Counseling',
+        SK Skills 'Cooking / Baking' -> 'Skill: Cooking/Baking',
+        SK Skills 'Dancer / Choreographer' -> 'Arts: Dance',
+        SK Skills 'Gardening / Yard Work' -> 'Skill: Gardening',
+        SK Skills 'Information Technology' -> 'Skill: Tech/Computers',
+        SK Skills 'Mailing Preparation' -> 'Skill: Office Admin',
+        SK Skills 'Organizational Skills' -> 'Skill: Office Admin',  (this mapping seems funny)
+        SK Skills 'Photography / Videography' -> 'Arts: Video/Photography',
+        SK Skills 'Sew / Knit / Crochet' -> 'Arts: Sew/Knit/Crochet',
+        SK Skills 'Singer' -> 'Arts: Vocalist',
+        SK Skills 'Teacher' -> 'Skill: Education',
+        SK Skills 'Writer' -> 'Arts: Writer'."""
+
     return xref_w2s_gather(row, 'abilities')
 
 
