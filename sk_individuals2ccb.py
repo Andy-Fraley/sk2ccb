@@ -962,8 +962,8 @@ def setup_column_conversions(table):
                 table = add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
                     val_field_converter_method)
 
-        if val_field_custom_or_process_queue is not None:
-            add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue)
+        add_header_comment(val_field_ccb_name,
+            get_descriptive_custom_or_process_queue_string(val_field_custom_or_process_queue))
 
     # This must be 'last' conversion so that it picks up warnings recorded in prior conversions
     table = petl.addfield(table, 'conversion trace', lambda rec: ';'.join(g.conversion_traces[rec['Individual ID']]) \
@@ -974,29 +974,33 @@ def setup_column_conversions(table):
 
 def add_header_comment(val_field_ccb_name, header_str):
     global g
+    if not header_str:
+        return
     if val_field_ccb_name not in g.header_comments:
-        g.header_comments[val_field_ccb_name] = ''
+        g.header_comments[val_field_ccb_name] = header_str
     else:
-        g.header_comments[val_field_ccb_name] += '\n\n'
-    g.header_comments[val_field_ccb_name] += header_str
+        g.header_comments[val_field_ccb_name] += ('\n\n' + g.header_comments[val_field_ccb_name])
 
 
-def add_header_comment_about_custom_or_process_queue(val_field_ccb_name, val_field_custom_or_process_queue):
+def get_descriptive_custom_or_process_queue_string(val_field_custom_or_process_queue):
     global g
-    map_field_to_comment = {
-        'custom-pulldown': 'This field is a CCB custom pulldown field. ',
-        'custom-text': 'This field is a CCB custom text field. ',
-        'custom-date': 'This field is a CCB custom date field. ',
-        'process_queue': 'This field is a CCB process queue data field. '
-    }
-    assert val_field_custom_or_process_queue in map_field_to_comment
-    add_header_comment(val_field_ccb_name, map_field_to_comment[val_field_custom_or_process_queue])
+    if not val_field_custom_or_process_queue:
+        return None
+    else:
+        map_field_to_comment = {
+            'custom-pulldown': 'This field is a CCB custom pulldown field.',
+            'custom-text': 'This field is a CCB custom text field.',
+            'custom-date': 'This field is a CCB custom date field.',
+            'process_queue': 'This field is a CCB process queue data field.'
+        }
+        assert val_field_custom_or_process_queue in map_field_to_comment
+        return map_field_to_comment[val_field_custom_or_process_queue]
 
 
 def add_empty_column(table, val_field_ccb_name):
     assert isinstance(val_field_ccb_name, basestring)
     trace("Adding empty column '" + val_field_ccb_name + "'")
-    add_header_comment(val_field_ccb_name, 'Servant Keeper has no data for this field. Leaving it blank. ')
+    add_header_comment(val_field_ccb_name, 'Servant Keeper has no data for this field. Leaving it blank.')
     table = petl.addfield(table, val_field_ccb_name, '')
     return table
 
@@ -1006,7 +1010,7 @@ def add_fixed_string_column(table, val_field_ccb_name, fixed_string):
     assert isinstance(fixed_string, basestring)
     trace("Adding fixed string column '" + val_field_ccb_name + "', with value '" + fixed_string + "'")
     add_header_comment(val_field_ccb_name, 'Servant Keeper has no data for this field. We are loading it ' \
-        "with fixed value '" + fixed_string + "'. ")
+        "with fixed value '" + fixed_string + "'.")
     table = petl.addfield(table, val_field_ccb_name, fixed_string)
     return table
 
@@ -1016,7 +1020,7 @@ def add_cloned_column(table, val_field_ccb_name, val_field_sk_name):
     assert isinstance(val_field_sk_name, basestring)
     trace("Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + "'")
     add_header_comment(val_field_ccb_name, "This field is cloned from Servant Keeper's '" + val_field_sk_name + \
-        "' column. ")
+        "' column.")
     table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
     return table
 
@@ -1029,9 +1033,7 @@ def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter
     assert isinstance(val_field_ccb_name, basestring)
     assert callable(val_field_converter_method)
     trace("Adding empty column '" + val_field_ccb_name + "', and then converting")
-    if val_field_converter_method.__doc__:
-        header_str = re.sub(r'\n    ', '\n', val_field_converter_method.__doc__)
-        add_header_comment(val_field_ccb_name, header_str + ' ')
+    add_header_comment(val_field_ccb_name, val_field_converter_method.__doc__)
     table = petl.addfield(table, val_field_ccb_name, '')
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
         sk_col_name=None, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
@@ -1044,10 +1046,9 @@ def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
     assert callable(val_field_converter_method)
     trace("Adding cloned column '" + val_field_ccb_name + "', from column '" + val_field_sk_name + \
         "', and then converting")
-    header_str = "This field is sourced from Servant Keeper's '" + val_field_sk_name + "' column. "
-    if val_field_converter_method.__doc__:
-        header_str += re.sub(r'\n    ', '\n', val_field_converter_method.__doc__)
-    add_header_comment(val_field_ccb_name, header_str)
+    add_header_comment(val_field_ccb_name,
+        "This field is sourced from Servant Keeper's '" + val_field_sk_name + "' column.")
+    add_header_comment(val_field_ccb_name, val_field_converter_method.__doc__)
     table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
         sk_col_name=val_field_sk_name, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
