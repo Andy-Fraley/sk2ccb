@@ -534,11 +534,11 @@ def convert_phone(value, row, sk_col_name, ccb_col_name):
 
 def convert_family_position(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
-    'Head of Household' -> 'Primary contact',
-    'Spouse' -> 'Spouse',
-    'Son' -> 'Child',
-    'Daughter' -> 'Child',
-    <anything_else> -> 'Other'."""
+        'Head of Household' -> 'Primary contact',
+        'Spouse' -> 'Spouse',
+        'Son' -> 'Child',
+        'Daughter' -> 'Child',
+        <anything_else> -> 'Other'."""
 
     # This tracker could be placed in *any* one and only one convert_xxx() method to figure out progress.
     # This one was randomly chosen
@@ -557,13 +557,13 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
 
 def convert_prefix(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
-    'Rev.' -> 'Rev.',
-    'Dr.' -> 'Dr.',
-    'Mr.' -> 'Mr.',
-    'Pastor' -> 'Pastor',
-    'Ms.' -> 'Ms.',
-    'Mrs.' -> 'Mrs.',
-    <anything_else> -> '' (empty string)."""
+        'Rev.' -> 'Rev.',
+        'Dr.' -> 'Dr.',
+        'Mr.' -> 'Mr.',
+        'Pastor' -> 'Pastor',
+        'Ms.' -> 'Ms.',
+        'Mrs.' -> 'Mrs.',
+        <anything_else> -> '' (empty string)."""
 
     convert_dict = {
         'Rev.': 'Rev.',
@@ -578,13 +578,13 @@ def convert_prefix(value, row, sk_col_name, ccb_col_name):
 
 def convert_suffix(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
-    'Jr.' -> 'Jr.',
-    'Sr.' -> 'Sr.',
-    'II' -> 'II',
-    'III' -> 'III',
-    'IV' -> 'IV',
-    'Dr.' -> 'Dr.',
-    <anything_else> -> '' (empty string)."""
+        'Jr.' -> 'Jr.',
+        'Sr.' -> 'Sr.',
+        'II' -> 'II',
+        'III' -> 'III',
+        'IV' -> 'IV',
+        'Dr.' -> 'Dr.',
+        <anything_else> -> '' (empty string)."""
 
     convert_dict = {
         'Jr.': 'Jr.',
@@ -628,12 +628,12 @@ def convert_gender(value, row, sk_col_name, ccb_col_name):
 
 def convert_marital_status(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
-    'Divorced' -> 'divorced',
-    'Separated' -> 'separated',
-    'Married' -> 'married',
-    'Single' -> 'single',
-    'Widowed' -> 'widowed'
-    <anything_else> -> '' (empty string)."""
+        'Divorced' -> 'divorced',
+        'Separated' -> 'separated',
+        'Married' -> 'married',
+        'Single' -> 'single',
+        'Widowed' -> 'widowed'
+        <anything_else> -> '' (empty string)."""
 
     convert_dict = {
         'Divorced': 'divorced',
@@ -657,22 +657,22 @@ def convert_membership_stop_date(value, row, sk_col_name, ccb_col_name):
 
 def convert_membership_type(value, row, sk_col_name, ccb_col_name):
     """This field has a complex mapping which is basically as follows:
-    'Active Member' -> 'Member - Active',
-    'Inactive Member' -> 'Member - Inactive',
-    'Regular Attendee' -> 'Regular Attendee',
-    'Visitor' -> 'Guest',
-    'Non-Member (How Sourced ? <> 'Donation...')' -> 'Friend',
-    'Non-Member (How Sourced ? == 'Donation...')' -> 'Donor',
-    'Pastor' -> 'Pastor',
-    'Deceased - Member' -> 'Member - Inactive',
-    'Deceased - Non-Member' -> 'Friend',
-    'None' -> '' (blank),
-    'No Longer Attend' -> 'Friend',
-    'Transferred out to other UMC' -> 'Friend',
-    'Transferred out to Non UMC' -> 'Friend',
-    'Withdrawal' -> 'Friend',
-    'Charge Conf. Removal' -> 'Friend'
-    'Archives (Red Book)' -> '' (blank)."""
+        'Active Member' -> 'Member - Active',
+        'Inactive Member' -> 'Member - Inactive',
+        'Regular Attendee' -> 'Regular Attendee',
+        'Visitor' -> 'Guest',
+        'Non-Member (How Sourced ? <> 'Donation...')' -> 'Friend',
+        'Non-Member (How Sourced ? == 'Donation...')' -> 'Donor',
+        'Pastor' -> 'Pastor',
+        'Deceased - Member' -> 'Member - Inactive',
+        'Deceased - Non-Member' -> 'Friend',
+        'None' -> '' (blank),
+        'No Longer Attend' -> 'Friend',
+        'Transferred out to other UMC' -> 'Friend',
+        'Transferred out to Non UMC' -> 'Friend',
+        'Withdrawal' -> 'Friend',
+        'Charge Conf. Removal' -> 'Friend'
+        'Archives (Red Book)' -> '' (blank)."""
 
     global g
     new_value = g.xref_member_fields[row['Member Status']]['membership type']
@@ -683,22 +683,22 @@ def convert_membership_type(value, row, sk_col_name, ccb_col_name):
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
     """Based on the following values of Servant Keeper's 'Member Status' field, this field is mapped as follows:
-    'Active Member' -> '' (empty, i.e. active so retain),
-    'Inactive Member' -> '' (empty, i.e. active so retain),
-    'Regular Attendee' -> '' (empty, i.e. active so retain),
-    'Visitor' -> '' (empty, i.e. active so retain),
-    'Non-Member (How Sourced ? <> 'Donation...')' -> '' (empty, i.e. active so retain),
-    'Non-Member (How Sourced ? == 'Donation...')' -> '' (empty, i.e. active so retain),
-    'Pastor' -> '' (empty, i.e. active so retain),
-    'Deceased - Member' -> 'yes' (i.e. inactive so remove),
-    'Deceased - Non-Member' -> 'yes' (i.e. inactive so remove),
-    'None' -> 'yes' (i.e. inactive so remove),
-    'No Longer Attend' -> '' (empty, i.e. active so retain),
-    'Transferred out to other UMC' -> 'yes' (i.e. inactive so remove),
-    'Transferred out to Non UMC' -> 'yes' (i.e. inactive so remove),
-    'Withdrawal' -> '' (empty, i.e. active so retain)...AndyF comment - shouldn't this become remove/inactive???,
-    'Charge Conf. Removal' -> 'yes' (i.e. inactive so remove),
-    'Archives (Red Book)' -> 'yes' (i.e. inactive so remove)."""
+        'Active Member' -> '' (empty, i.e. active so retain),
+        'Inactive Member' -> '' (empty, i.e. active so retain),
+        'Regular Attendee' -> '' (empty, i.e. active so retain),
+        'Visitor' -> '' (empty, i.e. active so retain),
+        'Non-Member (How Sourced ? <> 'Donation...')' -> '' (empty, i.e. active so retain),
+        'Non-Member (How Sourced ? == 'Donation...')' -> '' (empty, i.e. active so retain),
+        'Pastor' -> '' (empty, i.e. active so retain),
+        'Deceased - Member' -> 'yes' (i.e. inactive so remove),
+        'Deceased - Non-Member' -> 'yes' (i.e. inactive so remove),
+        'None' -> 'yes' (i.e. inactive so remove),
+        'No Longer Attend' -> '' (empty, i.e. active so retain),
+        'Transferred out to other UMC' -> 'yes' (i.e. inactive so remove),
+        'Transferred out to Non UMC' -> 'yes' (i.e. inactive so remove),
+        'Withdrawal' -> '' (empty, i.e. active so retain)...AndyF comment - shouldn't this become remove/inactive???,
+        'Charge Conf. Removal' -> 'yes' (i.e. inactive so remove),
+        'Archives (Red Book)' -> 'yes' (i.e. inactive so remove)."""
 
     global g
     new_value = g.xref_member_fields[row['Member Status']]['inactive/remove']
@@ -976,6 +976,8 @@ def add_header_comment(val_field_ccb_name, header_str):
     global g
     if val_field_ccb_name not in g.header_comments:
         g.header_comments[val_field_ccb_name] = ''
+    else:
+        g.header_comments[val_field_ccb_name] += '\n\n'
     g.header_comments[val_field_ccb_name] += header_str
 
 
@@ -1027,8 +1029,8 @@ def add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter
     assert isinstance(val_field_ccb_name, basestring)
     assert callable(val_field_converter_method)
     trace("Adding empty column '" + val_field_ccb_name + "', and then converting")
-    header_str = val_field_converter_method.__doc__
-    if header_str:
+    if val_field_converter_method.__doc__:
+        header_str = re.sub(r'\n    ', '\n', val_field_converter_method.__doc__)
         add_header_comment(val_field_ccb_name, header_str + ' ')
     table = petl.addfield(table, val_field_ccb_name, '')
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
@@ -1044,7 +1046,7 @@ def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
         "', and then converting")
     header_str = "This field is sourced from Servant Keeper's '" + val_field_sk_name + "' column. "
     if val_field_converter_method.__doc__:
-        header_str += re.sub(r'\n    ', ' ', val_field_converter_method.__doc__)
+        header_str += re.sub(r'\n    ', '\n', val_field_converter_method.__doc__)
     add_header_comment(val_field_ccb_name, header_str)
     table = petl.addfield(table, val_field_ccb_name, lambda rec: rec[val_field_sk_name])
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
