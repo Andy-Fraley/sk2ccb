@@ -980,7 +980,7 @@ def setup_column_conversions(table):
         ['city', 'City'],
         ['state', 'State'],
         ['postal code', 'Zip Code'],
-        ['country', 'Country'],
+        ['country', 'Country', convert_country],
         ['mailing carrier route'],
         ['home street', 'Address'],
         ['home street line 2', 'Address Line 2'],
@@ -1043,7 +1043,7 @@ def setup_column_conversions(table):
         ['other street', 'Alt Address'],
         ['other street line 2', 'Alt Address Line 2'],
         ['other city', 'Alt City'],
-        ['other country', 'Alt Country'],
+        ['other country', 'Alt Country', convert_country],
         ['other state', 'Alt State'],
         ['other_postal code', 'Alt Zip Code'],
 
@@ -1129,6 +1129,7 @@ def add_header_comment(val_field_ccb_name, header_str):
     global g
     if not header_str:
         return
+    header_str = re.sub(r'\n    ', '', header_str)
     if val_field_ccb_name not in g.header_comments:
         g.header_comments[val_field_ccb_name] = header_str
     else:
