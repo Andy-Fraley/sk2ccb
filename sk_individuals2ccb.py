@@ -1074,9 +1074,9 @@ def setup_column_conversions(table):
         ['other_postal code', 'Alt Zip Code'],
 
         # Guest folloowup process queue
-        ['guest_followup 1 month', '1-Month Follow-up', None, 'process_queue'],
-        ['guest_followup 1 week', 'Wk 1 Follow-up', None, 'process_queue'],
-        ['guest_followup 2 weeks', 'Wk 2 Follow-up', None, 'process_queue'],
+        ['guest_followup 1 month', '1-Month Follow-up', convert_date, 'process_queue'],
+        ['guest_followup 1 week', 'Wk 1 Follow-up', convert_date, 'process_queue'],
+        ['guest_followup 2 weeks', 'Wk 2 Follow-up', convert_date, 'process_queue'],
 
         # Burial folloowup process queue
         ['burial city county state', 'Burial: City, County, St', None, 'process_queue'],
@@ -1155,11 +1155,32 @@ def add_header_comment(val_field_ccb_name, header_str):
     global g
     if not header_str:
         return
-    header_str = re.sub(r'\s{5}', '\n    ', re.sub(r'\s*\n\s{4}', ' ', header_str))
+    header_str = format_header_comment(header_str)
     if val_field_ccb_name not in g.header_comments:
         g.header_comments[val_field_ccb_name] = header_str
     else:
         g.header_comments[val_field_ccb_name] += ('\n\n' + header_str)
+
+
+def format_header_comment(header_str):
+    """For any line beginning with >4 spaces, chop off all but 4 and post-pend the line with \n"""
+
+    output_str = ''
+    prior_line_was_indented = False
+    for line in header_str.split('\n'):
+        if line[:5] == '     ':
+            if not prior_line_was_indented:
+                output_str += '\n'
+            output_str += line[4:] + '\n'
+            prior_line_was_indented = True
+        elif line[:4] == '    ':
+            output_str += line[4:] + ' '
+            prior_line_was_indented = False
+        else:
+            output_str += line + ' '
+            prior_line_was_indented = False
+    return output_str
+    # return re.sub(r'\s{5}', '\n    ', re.sub(r'\s*\n\s{4}', ' ', header_str))
 
 
 def get_descriptive_custom_or_process_queue_string(val_field_custom_or_process_queue):
