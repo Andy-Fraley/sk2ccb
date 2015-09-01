@@ -509,18 +509,14 @@ def convert_date(value, row, sk_col_name, ccb_col_name):
     else it is set to blank ('')."""
 
     try:
-        datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
-        date_valid = True
+        d = datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
+        new_value = d.strftime('%Y-%m-%d')
     except ValueError:
-        date_valid = False
+        new_value = ''
     except:
         raise
-    if not date_valid:
-        new_value = ''
-        if not re.match(r'(\s+/\s+/\s+)|(^$)', value):
-            conversion_trace(row, "Blanked invalid date: '" + value + "'", sk_col_name, ccb_col_name)
-    else:
-        new_value = value
+    if new_value == '' and not re.match(r'(\s+/\s+/\s+)|(^$)', value):
+        conversion_trace(row, "Blanked invalid date: '" + value + "'", sk_col_name, ccb_col_name)
     return new_value
 
 
