@@ -40,6 +40,12 @@ def main(argv):
 
     table = petl.fromcsv(g.args.individuals_filename)
 
+    # Rename the first and second 'General Notes' columns to be 'Family Notes' and 'Individual Notes' respectively
+    header_row = petl.header(table)
+    gen_notes_column_indices = [x for x in range(len(header_row)) if header_row[x] == 'General Notes']
+    table = petl.rename(table, {
+        gen_notes_column_indices[0]: 'Family Notes',
+        gen_notes_column_indices[1]: 'Individual Notes'})
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
     g.xref_member_fields = get_xref_member_fields()
@@ -65,10 +71,6 @@ def main(argv):
     table = setup_column_conversions(table)
 
     trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
-
-    # REMOVE
-    #print g.header_comments
-    #sys.exit(1)
 
     petl.tocsv(table, g.args.output_filename)
 
@@ -750,8 +752,32 @@ def convert_baptized(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_notes(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    """This field is formed from both 'Family Notes' (1st 'General Notes') and 'Individual Notes' (2nd 'General Notes')
+    fields from Servant Keeper.  It is pre-pended by language indicating it's from Servant Keeper 'General Notes' and
+    with a date-time stamp of the time that transform utility was run.  The separate notes sections are pre-pended
+    with 'FAMILY NOTES:' (if present and if this individual is 'Primary Contact') and 'INDIVIDUAL NOTES:' (if
+    present)."""
+
+    family_notes_str = None
+    individual_notes_str = None
+    # TODO - if we decide to count every family with only one individual as 'Primary' contact, then logic below
+    # changes (not looking up 'Relationship' == 'Head of Household' in Servant Keeper)
+    if row['Relationship'] == 'Head of Household' and row['Family Notes']:
+        family_notes_str = '\n\nSERVANT KEEPER FAMILY NOTES:\n\n' + row['Family Notes']
+    if row['Individual Notes']:
+        individual_notes_str = '\n\nSERVANT KEEPER INDIVIDUAL NOTES:\n\n' + row['Individual Notes']
+    if family_notes_str or individual_notes_str:
+        output_str = 'THESE NOTES WERE CONVERTED FROM SERVANT KEEPER ({})'.format(
+            datetime.datetime.now().strftime('%Y-%m-%d %H:%M'))
+        if family_notes_str:
+            output_str += family_notes_str
+        if individual_notes_str:
+            output_str += individual_notes_str
+        #print '-->\n' + output_str + '\n<--\n'
+        return output_str
+    else:
+        #print '-->\n<--\n'
+        return ''
 
 
 def convert_approved_to_work_with_children(value, row, sk_col_name, ccb_col_name):
@@ -1129,7 +1155,7 @@ def add_header_comment(val_field_ccb_name, header_str):
     global g
     if not header_str:
         return
-    header_str = re.sub(r'\n    ', '', header_str)
+    header_str = re.sub(r'\s{5}', '\n    ', re.sub(r'\s*\n\s{4}', ' ', header_str))
     if val_field_ccb_name not in g.header_comments:
         g.header_comments[val_field_ccb_name] = header_str
     else:
