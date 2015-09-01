@@ -66,7 +66,9 @@ def main(argv):
 
     trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
 
-    # print g.header_comments
+    # REMOVE
+    print g.header_comments
+    sys.exit(1)
 
     petl.tocsv(table, g.args.output_filename)
 
@@ -597,10 +599,16 @@ def convert_suffix(value, row, sk_col_name, ccb_col_name):
     return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
-def convert_listed(value, row, sk_col_name, ccb_col_name):
-    """By leaving this column blank (and not 'yes'), we intend for all users to be Basic Users."""
+def convert_limited_access_user(value, row, sk_col_name, ccb_col_name):
+    """By setting to 'no', we intend all users to be 'Basic User'."""
 
-    return ''
+    return 'no'
+
+
+def convert_listed(value, row, sk_col_name, ccb_col_name):
+    """By setting to 'yes', we intend all users to be visible ('Listed')."""
+
+    return 'yes'
 
 
 def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
@@ -649,8 +657,8 @@ def convert_marital_status(value, row, sk_col_name, ccb_col_name):
 def convert_membership_date(value, row, sk_col_name, ccb_col_name):
     """If person was *ever* a member current or prior (i.e. Servant Keeper's 'Member Status' is one of:
     'Active Member', 'Inactive Member', 'Deceased - Member', 'Transferred out to other UMC',
-    'Transferred out to Non UMC', 'Withdrawal', 'Charge Conf. Removal') then this date is set Servant Keeper's
-    'Date Joined', else it is set to blank ('')"""
+    'Transferred out to Non UMC', 'Withdrawal', 'Charge Conf. Removal'), and Servant Keeper's 'Date Joined' field
+    is a valid date, then this date is set Servant Keeper's 'Date Joined', else it is set to blank ('')"""
 
     new_value = xref_member_field_value(row, 'membership date')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
@@ -658,7 +666,8 @@ def convert_membership_date(value, row, sk_col_name, ccb_col_name):
 
 def convert_membership_stop_date(value, row, sk_col_name, ccb_col_name):
     """If person was a prior member (i.e. Servant Keeper's 'Member Status' is one of: 'Transferred out to other UMC',
-    'Transferred out to Non UMC', 'Withdrawal', 'Charge Conf. Removal'), then this date is set to Servant Keeper's
+    'Transferred out to Non UMC', 'Withdrawal', 'Charge Conf. Removal'), and Servant Keeper's
+    'Trf out/Withdrawal Date' field is a valid date, then this date is set to Servant Keeper's
     'Trf out/Withdrawal Date', else it is set to blank ('')"""
 
     new_value = xref_member_field_value(row, 'membership stop date')
@@ -689,6 +698,15 @@ def convert_membership_type(value, row, sk_col_name, ccb_col_name):
     if callable(new_value):
         new_value = new_value(row)
     return new_value
+
+
+def convert_country(value, row, sk_col_name, ccb_col_name):
+    """This field is mapped as follows:
+    'UK' -> 'United Kingdom',
+    <anything_else> -> <original_value>"""
+
+    # TODO - implement
+    pass
 
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
@@ -779,8 +797,9 @@ def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
 
 def convert_deceased(value, row, sk_col_name, ccb_col_name):
     """If person was a member or non-member who has died (i.e. Servant Keeper's 'Member Status' field is one of:
-    'Deceased - Member', 'Deceased - Non-Member'), this field is set to Servant Keeper's 'Date of Death' field,
-    else it is set to blank ('')."""
+    'Deceased - Member', 'Deceased - Non-Member'), and Servant Keeper's 'Date of Death' field is a valid date,
+    then this field is set to Servant Keeper's 'Date of Death' field, else it is set to blank ('')."""
+
     new_value = xref_member_field_value(row, 'deceased')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
@@ -912,7 +931,7 @@ def setup_column_conversions(table):
         ['last name', 'Last Name'],
         ['suffix', 'Suffix', convert_suffix],
         ['legal name', 'First Name'],
-        ['Limited Access User', None, '<limited_access_setting>'],
+        ['Limited Access User', None, convert_limited_access_user],
         ['Listed', None, convert_listed],
         ['inactive/remove', 'Active Profile', convert_inactive_remove],
         ['campus', None, 'Ingomar Church'],
@@ -1074,7 +1093,7 @@ def add_header_comment(val_field_ccb_name, header_str):
     if val_field_ccb_name not in g.header_comments:
         g.header_comments[val_field_ccb_name] = header_str
     else:
-        g.header_comments[val_field_ccb_name] += ('\n\n' + g.header_comments[val_field_ccb_name])
+        g.header_comments[val_field_ccb_name] += ('\n\n' + header_str)
 
 
 def get_descriptive_custom_or_process_queue_string(val_field_custom_or_process_queue):
