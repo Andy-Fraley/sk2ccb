@@ -67,8 +67,8 @@ def main(argv):
     trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
 
     # REMOVE
-    print g.header_comments
-    sys.exit(1)
+    #print g.header_comments
+    #sys.exit(1)
 
     petl.tocsv(table, g.args.output_filename)
 
@@ -606,7 +606,8 @@ def convert_limited_access_user(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_listed(value, row, sk_col_name, ccb_col_name):
-    """By setting to 'yes', we intend all users to be visible ('Listed')."""
+    """By setting to 'yes', we intend all users to be visible / 'Listed' (except those auto-limited by birthday date
+    and age detection in CCB, of course)."""
 
     return 'yes'
 
@@ -705,8 +706,10 @@ def convert_country(value, row, sk_col_name, ccb_col_name):
     'UK' -> 'United Kingdom',
     <anything_else> -> <original_value>"""
 
-    # TODO - implement
-    pass
+    if value == 'UK':
+        return 'United Kingdom'
+    else:
+        return value
 
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
@@ -734,8 +737,16 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_baptized(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    """This field is remapped as follows:
+        'Yes' -> 'yes',
+        'No' -> 'no'.
+    I.e., the selections are just made lower case."""
+
+    convert_dict = {
+        'Yes': 'yes',
+        'No': 'no'
+    }
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
 
 def convert_notes(value, row, sk_col_name, ccb_col_name):
@@ -773,8 +784,27 @@ def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    """This field is remapped as follows:
+        'Associate' -> 'Associate',
+        'Confirmation' -> 'Confirmation',
+        'Membership Restored' -> 'Membership Restored',
+        'Profession of Faith' -> 'Profession of Faith',
+        'Transferred  from other UMC' -> 'Transferred from other UMC',
+        'Transferred from Non UMC' -> 'Transferred from Non UMC',
+        '' -> ''.
+    Note:  the *only* remapping happening above is removal of extra space from 'Transferred  from other UMC'
+    setting."""
+
+    convert_dict = {
+        'Associate': 'Associate',
+        'Confirmation': 'Confirmation',
+        'Membership Restored': 'Membership Restored',
+        'Profession of Faith': 'Profession of Faith',
+        'Transferred  from other UMC': 'Transferred from other UMC',
+        'Transferred from Non UMC': 'Transferred from Non UMC',
+        '': ''
+    }
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
 
 def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
@@ -874,24 +904,33 @@ def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_confirmed(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    """This field is remapped as follows:
+        'Yes' -> 'yes',
+        'No' -> 'no'.
+    I.e., the selections are just made lower case."""
+
+    convert_dict = {
+        'Yes': 'yes',
+        'No': 'no'
+    }
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
 
 def convert_spirit_mailing(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
+    """This field is remapped as follows:
+        'Yes' -> 'postal mail',
+        'No' -> 'email'."""
+
+    convert_dict = {
+        'Yes': 'postal mail',
+        'No': 'email'
+    }
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
 
-def convert_photo_release(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
-
-
-def convert_ethnicity(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
-
+#######################################################################################################################
+# Core utility conversion setup method.
+#######################################################################################################################
 
 def setup_column_conversions(table):
 
@@ -1026,8 +1065,8 @@ def setup_column_conversions(table):
         ['confirmed', 'Confirmed', convert_confirmed, 'custom-pulldown'],
         ['mailbox number', 'Mail Box #', None, 'custom-text'],
         ['spirit mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'],
-        ['photo release', 'Photo Release', convert_photo_release, 'custom-pulldown'],
-        ['ethnicity', 'Racial/Ethnic identification', convert_ethnicity, 'custom-pulldown'],
+        ['photo release', 'Photo Release', None, 'custom-pulldown'],
+        ['ethnicity', 'Racial/Ethnic identification', None, 'custom-pulldown'],
         ['church transferred from', 'Church Transferred From', None, 'custom-text'],
         ['church transferred to', 'Church Transferred To', None, 'custom-text'],
         ['pastor when joined', 'Pastor when joined', None, 'custom-text'],
