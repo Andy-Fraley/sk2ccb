@@ -776,16 +776,6 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
         return ''
 
 
-def convert_approved_to_work_with_children(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
-
-
-def convert_approved_to_work_with_children_stop_date(value, row, sk_col_name, ccb_col_name):
-    # TODO
-    return ''
-
-
 def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
     """This field is mapped based on Servant Keeper's 'How Sourced' column as follows:
         'Acts of God' -> 'Event: Acts of God',
@@ -1033,8 +1023,8 @@ def setup_column_conversions(table):
         ['known allergies'],
         ['confirmed no allergies'],
         ['notes', None, convert_notes],
-        ['approved to work with children', None, convert_approved_to_work_with_children],
-        ['approved to work with children stop date', None, convert_approved_to_work_with_children_stop_date],
+        ['approved to work with children'],
+        ['approved to work with children stop date'],
         ['commitment date'],
         ['how they heard', None, convert_how_they_heard],
         ['how they joined', None, convert_how_they_joined],
