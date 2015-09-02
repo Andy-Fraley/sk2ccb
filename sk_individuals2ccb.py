@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-import sys, os.path, csv, argparse, petl, re, datetime, time, shutil, tempfile
+import sys, os.path, csv, argparse, petl, re, datetime, shutil, tempfile
 
 
 # Fake class only for purpose of limiting global namespace to the 'g' object
@@ -17,6 +17,7 @@ class g:
     conversion_row_num = None
     start_conversion_time = None
     total_rows = None
+    dict_family_id_counts = None
 
 
 def main(argv):
@@ -26,8 +27,6 @@ def main(argv):
     parser = argparse.ArgumentParser()
     parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
         "from Servant Keeper")
-    parser.add_argument("--child-approvals-filename", required=True, help="Filename of CSV file listing approval " \
-        "dates that individuals got various clearances to work with children")
     parser.add_argument("--output-filename", required=True, help="Output CSV filename which will be loaded with " \
         "individuals data in CCB import format ")
     parser.add_argument('--trace', action='store_true', help="If specified, prints to stdout as new columns are "
@@ -61,6 +60,8 @@ def main(argv):
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Skills')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Spiritual Gifts')
 
+    g.dict_family_id_counts = petl.valuecounter(table, 'Family ID')
+
     # print hitmiss_counters
     # for sk_field in hitmiss_counters:
     #    for item in hitmiss_counters[sk_field]:
@@ -72,14 +73,22 @@ def main(argv):
 
     trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
 
-    petl.tocsv(table, g.args.output_filename)
+    table.progress(200).tocsv(g.args.output_filename)
 
-    insert_header_comments(table, g.args.output_filename)
+    trace('OUTPUT TO CSV COMPLETE.', banner=True)
 
-    trace('OUTPUT TO CSV COMPLETE.  DONE!', banner=True)
+    trace('CREATING TRANSFORMATION SUMMARIZATIONS.', banner=True)
+
+    table = petl.fromcsv(g.args.output_filename)
+
+    summarization_row = get_summarization_row(table)
+
+    insert_header_comments_and_summarization_row(table, g.args.output_filename, summarization_row)
+
+    trace('DONE!', banner=True)
 
 
-def insert_header_comments(table, filename):
+def insert_header_comments_and_summarization_row(table, filename, summarization_row):
     global g
     table_header = petl.header(table)
     prepended_header = [g.header_comments[x] if x in g.header_comments else '' for x in table_header]
@@ -88,6 +97,7 @@ def insert_header_comments(table, filename):
         temp.close()
     with open(tmp_filename, 'wb') as csvfile_w:
         csv_writer = csv.writer(csvfile_w)
+        csv_writer.writerow(summarization_row)
         csv_writer.writerow(prepended_header)
         with open(filename, 'rb') as csvfile_r:
             csv_reader = csv.reader(csvfile_r)
@@ -300,7 +310,7 @@ def get_xref_member_fields():
             'deceased': ''
         },
         'Non-Member': {
-            'membership type': get_sourced_donor,
+            'membership type': get_sourced_donor_or_biz,
             'inactive/remove': '',
             'membership date': '',
             'reason left': '',
@@ -317,7 +327,7 @@ def get_xref_member_fields():
         },
         'Deceased - Member': {
             'membership type': 'Member - Inactive',
-            'inactive/remove': 'yes',
+            'inactive/remove': 'Yes',
             'membership date': get_date_joined,
             'reason left': 'Deceased',
             'membership stop date': '',
@@ -325,7 +335,7 @@ def get_xref_member_fields():
         },
         'Deceased - Non-Member': {
             'membership type': 'Friend',
-            'inactive/remove': 'yes',
+            'inactive/remove': 'Yes',
             'membership date': '',
             'reason left': '',
             'membership stop date': '',
@@ -333,7 +343,7 @@ def get_xref_member_fields():
         },
         'None': {
             'membership type': '',
-            'inactive/remove': 'yes',
+            'inactive/remove': 'Yes',
             'membership date': '',
             'reason left': '',
             'membership stop date': '',
@@ -349,7 +359,7 @@ def get_xref_member_fields():
         },
         'Transferred out to other UMC': {
             'membership type': 'Friend',
-            'inactive/remove': 'yes',
+            'inactive/remove': 'Yes',
             'membership date': get_date_joined,
             'reason left': 'Transferred out to other UMC',
             'membership stop date': get_trf_out_date,
@@ -357,7 +367,7 @@ def get_xref_member_fields():
         },
         'Transferred out to Non UMC': {
             'membership type': 'Friend',
-            'inactive/remove': 'yes',
+            'inactive/remove': 'Yes',
             'membership date': get_date_joined,
             'reason left': 'Transferred out to Non UMC',
             'membership stop date': get_trf_out_date,
@@ -373,7 +383,7 @@ def get_xref_member_fields():
         },
         'Charge Conf. Removal': {
             'membership type': 'Friend',
-            'inactive/remove': 'yes',
+            'inactive/remove': 'Yes',
             'membership date': get_date_joined,
             'reason left': 'Charge Conf. Removal',
             'membership stop date': get_trf_out_date,
@@ -381,17 +391,9 @@ def get_xref_member_fields():
         },
         'Archives (Red Book)': {
             'membership type': '',
-            'inactive/remove': 'yes',
+            'inactive/remove': 'Yes',
             'membership date': '',
             'reason left': 'Archives (Red Book)',
-            'membership stop date': '',
-            'deceased': ''
-        },
-        '': {  # Remove this entry...only for Hudson Community Foundation
-            'membership type': '',
-            'inactive/remove': 'yes',
-            'membership date': '',
-            'reason left': '',
             'membership stop date': '',
             'deceased': ''
         }
@@ -403,8 +405,10 @@ def get_xref_member_fields():
 # 'XRef-Member Status' row getter utilities
 #######################################################################################################################
 
-def get_sourced_donor(row):
-    if row['How Sourced?'][:8] == 'Donation':
+def get_sourced_donor_or_biz(row):
+    if row['Relationship'] == 'Organization Record':
+        return 'Business'
+    elif row['How Sourced?'][:8] == 'Donation':
         return 'Donor'
     else:
         return 'Friend'
@@ -441,7 +445,7 @@ def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
     else:
         prefix_str = "Converting blank '" + ccb_col_name + "'. "
     g.conversion_traces[indiv_id].append(prefix_str + msg_str)
-    trace('*** Conversion warning. ' + member_str + prefix_str + msg_str)
+    # trace('*** Conversion warning. ' + member_str + prefix_str + msg_str)
 
 
 def conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, other, trace_other=False):
@@ -454,24 +458,6 @@ def conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dic
         return other
     else:
         raise KeyError(value)
-
-
-def conversion_tracker(row):
-    global g
-    g.conversion_row_num += 1
-    if g.conversion_row_num % 500 == 0:
-        if g.args.trace:
-            elapsed_time_in_secs = int(time.time() - g.start_conversion_time)
-            remaining_secs = (g.total_rows - g.conversion_row_num) * elapsed_time_in_secs / g.conversion_row_num
-            trace('CONVERSION PROGRESS: Row ' + str(g.conversion_row_num) + ' of ' + str(g.total_rows) + \
-                '. Estimated ' + str(remaining_secs) + ' seconds remaining.', banner=True)
-
-
-def init_conversion_tracker(table):
-    global g
-    g.conversion_row_num = 1
-    g.start_conversion_time = time.time()
-    g.total_rows = petl.nrows(table)
 
 
 def is_phone_valid(phone_string):
@@ -498,6 +484,11 @@ def xref_w2s_gather(row, gather_str):
         return ';'.join(g.semicolon_sep_fields[indiv_id][gather_str])
     else:
         return ''
+
+
+def is_only_family_member(row):
+    global g
+    return g.dict_family_id_counts[row['Family ID']] == 1
 
     
 #######################################################################################################################
@@ -534,25 +525,29 @@ def convert_phone(value, row, sk_col_name, ccb_col_name):
 
 def convert_family_position(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
-        'Head of Household' -> 'Primary contact',
+        'Head of Household' -> 'Primary Contact',
         'Spouse' -> 'Spouse',
         'Son' -> 'Child',
         'Daughter' -> 'Child',
+        'Child' -> 'Child',
+        'Organization Record' -> 'Primary Contact' (and 'membership type' is set to 'Business')
         <anything_else> -> 'Other'."""
 
-    # This tracker could be placed in *any* one and only one convert_xxx() method to figure out progress.
-    # This one was randomly chosen
-    #
-    # NOTE:  PETL has petl.progress() and other supporting methods to do progress tracking
-    conversion_tracker(row)
-
     convert_dict = {
-        'Head of Household': 'Primary contact',
+        'Head of Household': 'Primary Contact',
         'Spouse': 'Spouse',
         'Son': 'Child',
-        'Daughter': 'Child'
+        'Daughter': 'Child',
+        'Child': 'Child',
+        'Organization Record': 'Primary Contact'
     }
-    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, 'Other', trace_other=True)
+    new_value = conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, 'Other',
+        trace_other=True)
+    if new_value != 'Primary Contact' and is_only_family_member(row):
+        conversion_trace(row, "'" + new_value + "' changed to 'Primary Contact', since only member of family ID '" + \
+            str(row['Family ID']) + "'", sk_col_name, ccb_col_name)
+        new_value = 'Primary Contact'
+    return new_value
 
 
 def convert_prefix(value, row, sk_col_name, ccb_col_name):
@@ -598,16 +593,16 @@ def convert_suffix(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_limited_access_user(value, row, sk_col_name, ccb_col_name):
-    """By setting to 'no', we intend all users to be 'Basic User'."""
+    """By setting to 'No', we intend all users to be 'Basic User'."""
 
-    return 'no'
+    return 'No'
 
 
 def convert_listed(value, row, sk_col_name, ccb_col_name):
-    """By setting to 'yes', we intend all users to be visible / 'Listed' (except those auto-limited by birthday date
+    """By setting to 'Yes', we intend all users to be visible / 'Listed' (except those auto-limited by birthday date
     and age detection in CCB, of course)."""
 
-    return 'yes'
+    return 'Yes'
 
 
 def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
@@ -622,35 +617,6 @@ def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
         return row['Cell Phone']
     else:
         return ''
-
-
-def convert_gender(value, row, sk_col_name, ccb_col_name):
-    """This field is loaded with 'male' or 'female', or with '' if unknown/other value in Servant Keeper."""
-
-    convert_dict = {
-        'Male': 'male',
-        'Female': 'female'
-    }
-    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
-
-
-def convert_marital_status(value, row, sk_col_name, ccb_col_name):
-    """This field is remapped as follows:
-        'Divorced' -> 'divorced',
-        'Separated' -> 'separated',
-        'Married' -> 'married',
-        'Single' -> 'single',
-        'Widowed' -> 'widowed'
-        <anything_else> -> blank ('')."""
-
-    convert_dict = {
-        'Divorced': 'divorced',
-        'Separated': 'separated',
-        'Married': 'married',
-        'Single': 'single',
-        'Widowed': 'widowed'
-    }
-    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
 def convert_membership_date(value, row, sk_col_name, ccb_col_name):
@@ -719,32 +685,19 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
         'Non-Member (How Sourced ? <> 'Donation...')' -> blank ('', i.e. active so retain),
         'Non-Member (How Sourced ? == 'Donation...')' -> blank ('', i.e. active so retain),
         'Pastor' -> blank ('', i.e. active so retain),
-        'Deceased - Member' -> 'yes' (i.e. inactive so remove),
-        'Deceased - Non-Member' -> 'yes' (i.e. inactive so remove),
-        'None' -> 'yes' (i.e. inactive so remove),
+        'Deceased - Member' -> 'Yes' (i.e. inactive so remove),
+        'Deceased - Non-Member' -> 'Yes' (i.e. inactive so remove),
+        'None' -> 'Yes' (i.e. inactive so remove),
         'No Longer Attend' -> blank ('', i.e. active so retain),
-        'Transferred out to other UMC' -> 'yes' (i.e. inactive so remove),
-        'Transferred out to Non UMC' -> 'yes' (i.e. inactive so remove),
+        'Transferred out to other UMC' -> 'Yes' (i.e. inactive so remove),
+        'Transferred out to Non UMC' -> 'Yes' (i.e. inactive so remove),
         'Withdrawal' -> blank ('', i.e. active so retain)...AndyF comment - shouldn't this become remove/inactive???,
-        'Charge Conf. Removal' -> 'yes' (i.e. inactive so remove),
-        'Archives (Red Book)' -> 'yes' (i.e. inactive so remove)."""
+        'Charge Conf. Removal' -> 'Yes' (i.e. inactive so remove),
+        'Archives (Red Book)' -> 'Yes' (i.e. inactive so remove)."""
 
     global g
     new_value = g.xref_member_fields[row['Member Status']]['inactive/remove']
     return new_value
-
-
-def convert_baptized(value, row, sk_col_name, ccb_col_name):
-    """This field is remapped as follows:
-        'Yes' -> 'yes',
-        'No' -> 'no'.
-    I.e., the selections are just made lower case."""
-
-    convert_dict = {
-        'Yes': 'yes',
-        'No': 'no'
-    }
-    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
 
 def convert_notes(value, row, sk_col_name, ccb_col_name):
@@ -915,27 +868,14 @@ def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
     return xref_w2s_gather(row, 'abilities')
 
 
-def convert_confirmed(value, row, sk_col_name, ccb_col_name):
-    """This field is remapped as follows:
-        'Yes' -> 'yes',
-        'No' -> 'no'.
-    I.e., the selections are just made lower case."""
-
-    convert_dict = {
-        'Yes': 'yes',
-        'No': 'no'
-    }
-    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
-
-
 def convert_spirit_mailing(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
-        'Yes' -> 'postal mail',
-        'No' -> 'email'."""
+        'Yes' -> 'Postal Mail',
+        'No' -> 'Email'."""
 
     convert_dict = {
-        'Yes': 'postal mail',
-        'No': 'email'
+        'Yes': 'Postal Mail',
+        'No': 'Email'
     }
     return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
@@ -951,9 +891,66 @@ def setup_column_conversions(table):
     g.header_comments = {}
     g.conversion_traces = {}
 
-    # Mark start time and number of rows that we're converting
-    init_conversion_tracker(table)
+    field_ccb_name = 0
+    field_sk_name = 1
+    field_converter_method = 2
+    field_custom_or_process_queue = 3
 
+    field_mappings = get_field_mappings()
+
+    num_sk_columns = len(petl.header(table))
+
+    for field_map_list in field_mappings:
+
+        val_field_ccb_name = field_map_list[field_ccb_name]
+        val_field_sk_name = None
+        val_field_converter_method = None
+        val_field_custom_or_process_queue = None
+
+        if len(field_map_list) > 1:
+            val_field_sk_name = field_map_list[field_sk_name]
+        if len(field_map_list) > 2:
+            val_field_converter_method = field_map_list[field_converter_method]
+        if len(field_map_list) > 3:
+            val_field_custom_or_process_queue = field_map_list[field_custom_or_process_queue]
+
+        # Add empty CCB placeholder column with no data to populate it
+        if val_field_sk_name is None and val_field_converter_method is None:
+            table = add_empty_column(table, val_field_ccb_name)
+
+        # Add cloned and renamed column
+        elif val_field_sk_name is not None and val_field_converter_method is None:
+            table = add_cloned_column(table, val_field_ccb_name, val_field_sk_name)
+
+        # Add empty or cloned/renamed column and run it through converter method
+        elif val_field_sk_name is None and val_field_converter_method is not None:
+            if isinstance(val_field_converter_method, basestring):
+                table = add_fixed_string_column(table, val_field_ccb_name, val_field_converter_method)
+            elif callable(val_field_converter_method):
+                table = add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method)
+            else:
+                raise AssertionError("On '" + val_field_ccb_name + "' field, converter method is not callable " \
+                    "and not a string")
+
+        # If source SK column is specified, clone it and convert
+        elif val_field_sk_name is not None and val_field_converter_method is not None:
+            if not callable(val_field_converter_method):
+                raise AssertionError("On '" + val_field_ccb_name + "' field, converter method is not callable")
+            else:
+                table = add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
+                    val_field_converter_method)
+
+        add_header_comment(val_field_ccb_name,
+            get_descriptive_custom_or_process_queue_string(val_field_custom_or_process_queue))
+
+    # This must be 'last' conversion so that it picks up warnings recorded in prior conversions
+    table = petl.addfield(table, 'conversion trace', lambda rec: ';'.join(g.conversion_traces[rec['Individual ID']]) \
+        if rec['Individual ID'] in g.conversion_traces else '')
+
+    return table
+
+
+def get_field_mappings():
     # Layout of field_mappings list of tuples below is:
     #
     # - [0] CCB field name
@@ -964,14 +961,7 @@ def setup_column_conversions(table):
     #
     # - [3] Custom or process queue field type ('custom-text', 'custom-date', 'custom-pulldown', 'process_queue')
     #   or None if this is not a custom or process queue data field
-
-    field_ccb_name = 0
-    field_sk_name = 1
-    field_converter_method = 2
-    field_custom_or_process_queue = 3
-
     field_mappings = [
-
         # Core (silver sample.xls) columns
         ['family id', 'Family ID'],
         ['individual id', 'Individual ID'],
@@ -1011,13 +1001,13 @@ def setup_column_conversions(table):
         ['emergency contact name'],
         ['birthday', 'Birth Date', convert_date],
         ['anniversary', 'Wedding Date', convert_date],
-        ['gender', 'Gender', convert_gender],
+        ['gender', 'Gender'],
         ['giving #', 'Env #'],
-        ['marital status', 'Marital Status', convert_marital_status],
+        ['marital status', 'Marital Status'],
         ['membership date', 'Date Joined', convert_membership_date],
         ['membership stop date', 'Trf out/Withdrawal Date', convert_membership_stop_date],
         ['membership type', None, convert_membership_type],
-        ['baptized', 'Baptized', convert_baptized],
+        ['baptized', 'Baptized'],
         ['school', 'School District'],
         ['school grade'],
         ['known allergies'],
@@ -1074,7 +1064,7 @@ def setup_column_conversions(table):
         ['baptism date', 'Baptized Date', convert_date, 'custom-pulldown'],
         ['baptized by', 'Baptized by', None, 'custom-pulldown'],
         ['confirmed date', 'Confirmed Date', convert_date, 'custom-date'],
-        ['confirmed', 'Confirmed', convert_confirmed, 'custom-pulldown'],
+        ['confirmed', 'Confirmed', None, 'custom-pulldown'],
         ['mailbox number', 'Mail Box #', None, 'custom-text'],
         ['spirit mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'],
         ['photo release', 'Photo Release', None, 'custom-pulldown'],
@@ -1084,58 +1074,8 @@ def setup_column_conversions(table):
         ['pastor when joined', 'Pastor when joined', None, 'custom-text'],
         ['pastor when leaving', 'Pastor when leaving', None, 'custom-text']
     ]
-
-    num_sk_columns = len(petl.header(table))
-
-    for field_map_list in field_mappings:
-
-        val_field_ccb_name = field_map_list[field_ccb_name]
-        val_field_sk_name = None
-        val_field_converter_method = None
-        val_field_custom_or_process_queue = None
-
-        if len(field_map_list) > 1:
-            val_field_sk_name = field_map_list[field_sk_name]
-        if len(field_map_list) > 2:
-            val_field_converter_method = field_map_list[field_converter_method]
-        if len(field_map_list) > 3:
-            val_field_custom_or_process_queue = field_map_list[field_custom_or_process_queue]
-
-        # Add empty CCB placeholder column with no data to populate it
-        if val_field_sk_name is None and val_field_converter_method is None:
-            table = add_empty_column(table, val_field_ccb_name)
-
-        # Add cloned and renamed column
-        elif val_field_sk_name is not None and val_field_converter_method is None:
-            table = add_cloned_column(table, val_field_ccb_name, val_field_sk_name)
-
-        # Add empty or cloned/renamed column and run it through converter method
-        elif val_field_sk_name is None and val_field_converter_method is not None:
-            if isinstance(val_field_converter_method, basestring):
-                table = add_fixed_string_column(table, val_field_ccb_name, val_field_converter_method)
-            elif callable(val_field_converter_method):
-                table = add_empty_column_then_convert(table, val_field_ccb_name, val_field_converter_method)
-            else:
-                raise AssertionError("On '" + val_field_ccb_name + "' field, converter method is not callable " \
-                    "and not a string")
-
-        # If source SK column is specified, clone it and convert
-        elif val_field_sk_name is not None and val_field_converter_method is not None:
-            if not callable(val_field_converter_method):
-                raise AssertionError("On '" + val_field_ccb_name + "' field, converter method is not callable")
-            else:
-                table = add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
-                    val_field_converter_method)
-
-        add_header_comment(val_field_ccb_name,
-            get_descriptive_custom_or_process_queue_string(val_field_custom_or_process_queue))
-
-    # This must be 'last' conversion so that it picks up warnings recorded in prior conversions
-    table = petl.addfield(table, 'conversion trace', lambda rec: ';'.join(g.conversion_traces[rec['Individual ID']]) \
-        if rec['Individual ID'] in g.conversion_traces else '')
-
-    return table
-
+    return field_mappings
+    
 
 def add_header_comment(val_field_ccb_name, header_str):
     global g
@@ -1240,6 +1180,110 @@ def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
         sk_col_name=val_field_sk_name, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
     return table
+
+
+def get_summarization_row(table):
+    summarizations_to_do = [
+        ['Relationship', 'family position'],
+        ['Title', 'prefix'],
+        ['Suffix', 'suffix'],
+        ['Member Status', 'inactive/remove'],
+        ['City', 'city'],
+        ['State', 'state'],
+        ['Zip Code', 'postal code'],
+        ['Country', 'country'],
+        ['City', 'home_city'],
+        ['State', 'home_state'],
+        ['Zip Code', 'home_postal code'],
+        ['Gender', 'gender'],
+        ['Marital Status', 'marital status'],
+        ['Member Status', 'membership type'],
+        ['Baptized', 'baptized'],
+        ['School District', 'school'],
+        ['How Sourced?', 'how they heard'],
+        ['How Joined', 'how they joined'],
+        ['Member Status', 'reason left church'],
+        ['Occupation', 'job title'],
+        [[';Skills', ';Spiritual Gifts'], ';spiritual_gifts'],
+        [[';Willing to Serve', ';Skills'], ';passions'],
+        [[';Willing to Serve', ';Skills'], ';abilities/skills'],
+        ['Alt Country', 'other country'],
+        ['Alt State', 'other state'],
+        ['Alt Zip Code', 'other_postal code'],
+        ['Confirmed', 'confirmed'],
+        ['The Spirit Mailing', 'spirit mailing'],
+        ['Photo Release', 'photo release'],
+        ['Racial/Ethnic identification', 'ethnicity']
+    ]
+
+    header_summarization = {}
+    for list_summarizations in summarizations_to_do:
+        summary_str = ''
+
+        if isinstance(list_summarizations[0], basestring):
+            list_of_sk_columns = [list_summarizations[0]]
+        elif isinstance(list_summarizations[0], list):
+            list_of_sk_columns = list_summarizations[0]
+        else:
+            raise TypeError('Expecting list or string')
+
+        for sk_col_name in list_of_sk_columns:
+            (semi_sep_flag, sk_col_name) = get_semi_sep_field(sk_col_name)
+            print "'Summarizing SK column distribution for: '" + sk_col_name + "'"
+            if semi_sep_flag:
+                dict_sk = semi_sep_valuecounter(table, sk_col_name)
+            else:
+                dict_sk = petl.valuecounter(table, sk_col_name)
+            summary_str += "Servant Keeper distribution for column '" + sk_col_name + "':\n"
+            total = 0
+            for key in dict_sk:
+                summary_str += "'" + key + "': " + str(dict_sk[key]) + '\n'
+                total += dict_sk[key]
+            summary_str += 'TOTAL: ' + str(total) + '\n\n'
+
+        ccb_col_name = list_summarizations[1]
+        (semi_sep_flag, ccb_col_name) = get_semi_sep_field(ccb_col_name)
+        print "'Summarizing CCB column distribution for: '" + ccb_col_name + "'"
+        if semi_sep_flag:
+            dict_ccb = semi_sep_valuecounter(table, ccb_col_name)
+        else:
+            dict_ccb = petl.valuecounter(table, ccb_col_name)
+        summary_str += "CCB distribution for column '" + ccb_col_name + "':\n"
+        total = 0
+        for key in dict_ccb:
+            summary_str += "'" + key + "': " + str(dict_ccb[key]) + '\n'
+            total += dict_ccb[key]
+        summary_str += 'TOTAL: ' + str(total)
+
+        print 'Storing summarization under CCB column: ' + ccb_col_name
+        header_summarization[ccb_col_name] = summary_str
+
+    print header_summarization
+    header_row = petl.header(table)
+    prepended_row = [header_summarization[x] if x in header_summarization else '' for x in header_row]
+    print prepended_row
+    return prepended_row
+
+
+def get_semi_sep_field(field_name_str):
+    if field_name_str[:1] == ';':
+        return (True, field_name_str[1:])
+    else:
+        return (False, field_name_str)
+
+
+def semi_sep_valuecounter(table, col_name):
+    dict_semi_sep = {}
+    for value in petl.values(table, col_name):
+        if value.strip() == '':
+            continue
+        else:
+            for semi_sep in value.split(';'):
+                semi_sep_str = semi_sep.strip()
+                if semi_sep_str not in dict_semi_sep:
+                    dict_semi_sep[semi_sep_str] = 0
+                dict_semi_sep[semi_sep_str] += 1
+    return dict_semi_sep
 
 
 if __name__ == "__main__":
