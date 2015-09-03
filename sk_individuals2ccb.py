@@ -61,6 +61,9 @@ def main(argv):
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Spiritual Gifts')
 
     g.dict_family_id_counts = petl.valuecounter(table, 'Family ID')
+    print g.dict_family_id_counts
+    print
+    print g.dict_family_id_counts['7340314689378400']
 
     # print hitmiss_counters
     # for sk_field in hitmiss_counters:
@@ -73,7 +76,7 @@ def main(argv):
 
     trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
 
-    table.progress(200).tocsv(g.args.output_filename)
+    table.progress(1).tocsv(g.args.output_filename)
 
     trace('OUTPUT TO CSV COMPLETE.', banner=True)
 
@@ -457,7 +460,7 @@ def conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dic
                  sk_col_name, ccb_col_name)
         return other
     else:
-        raise KeyError(value)
+        raise KeyError(value + ' not in ' + str(convert_dict) + '.')
 
 
 def is_phone_valid(phone_string):
@@ -471,6 +474,8 @@ def is_phone_valid(phone_string):
 
 def xref_member_field_value(row, field_str):
     global g
+    assert row['Member Status'] in g.xref_member_fields, "In xref_member_field_values, 'Member Status' of '" + \
+        row['Member Status'] + "' is not valid key.  Aborting..."
     new_value = g.xref_member_fields[row['Member Status']][field_str]
     if callable(new_value):
         new_value = new_value(row)
@@ -488,6 +493,7 @@ def xref_w2s_gather(row, gather_str):
 
 def is_only_family_member(row):
     global g
+    assert row['Family ID'] != '', "Row has blank 'Family ID'. " + str(row)
     return g.dict_family_id_counts[row['Family ID']] == 1
 
     
@@ -659,6 +665,8 @@ def convert_membership_type(value, row, sk_col_name, ccb_col_name):
         'Archives (Red Book)' -> '' (blank)."""
 
     global g
+    assert row['Member Status'] in g.xref_member_fields, "In convert_membership_type(), 'Member Status' of '" + \
+        row['Member Status'] + "' is not valid key.  Aborting..."
     new_value = g.xref_member_fields[row['Member Status']]['membership type']
     if callable(new_value):
         new_value = new_value(row)
@@ -696,6 +704,8 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
         'Archives (Red Book)' -> 'Yes' (i.e. inactive so remove)."""
 
     global g
+    assert row['Member Status'] in g.xref_member_fields, "In convert_inactive_remove(), 'Member Status' of '" + \
+        row['Member Status'] + "' is not valid key.  Aborting..."
     new_value = g.xref_member_fields[row['Member Status']]['inactive/remove']
     return new_value
 
@@ -786,6 +796,8 @@ def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
         'Archives (Red Book)', -> 'Archives (Red Book)'."""
 
     global g
+    assert row['Member Status'] in g.xref_member_fields, "In convert_reason_left_church(), 'Member Status' of '" + \
+        row['Member Status'] + "' is not valid key.  Aborting..."
     value = g.xref_member_fields[row['Member Status']]['reason left']
     return value
 
