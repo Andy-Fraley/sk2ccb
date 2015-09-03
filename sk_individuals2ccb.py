@@ -18,6 +18,7 @@ class g:
     start_conversion_time = None
     total_rows = None
     dict_family_id_counts = None
+    xref_mailing_activities = None
 
 
 def main(argv):
@@ -59,11 +60,11 @@ def main(argv):
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Willing to Serve')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Skills')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Spiritual Gifts')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Mailing Lists')
 
     g.dict_family_id_counts = petl.valuecounter(table, 'Family ID')
-    print g.dict_family_id_counts
-    print
-    print g.dict_family_id_counts['7340314689378400']
+
+    # g.xref_mailing_activities = get_semi_settings(table, 'Mailing List')
 
     # print hitmiss_counters
     # for sk_field in hitmiss_counters:
@@ -76,7 +77,7 @@ def main(argv):
 
     trace('BEGINNING CONVERSION, THEN EMITTING TO CSV FILE...', banner=True)
 
-    table.progress(1).tocsv(g.args.output_filename)
+    table.progress(200).tocsv(g.args.output_filename)
 
     trace('OUTPUT TO CSV COMPLETE.', banner=True)
 
@@ -124,6 +125,26 @@ def trace(msg_str, banner=False):
             print '*************************************************************************************************' \
                 '**********************'
             print
+
+
+#######################################################################################################################
+# 'XRef-Mail Lists...  Semi-colon sep field collector
+#######################################################################################################################
+
+def get_semi_settings(table, field_name):
+    """Walks through specified field and for 'individual id' accumulates entries in g.xref_mailing_activities dict
+    structured as:
+        <individual_id>: set(<all tags picked off field_name plus other field_names from prior calls>)
+    NOTE: This counts on not having same named but different contextual tags across all field_name's accumulated
+    by this method."""
+
+    non_blank_rows = petl.selectisnot(table, field_name, u'')
+    for indiv_id, semi_sep_field in non_blank_rows.values('Individual ID', field_name):
+        for semi_sep_value in semi_sep_field.split(';'):
+            if indiv_id not in g.xref_mailing_activities:
+                g.xref_mailing_activities[indiv_id] = set()
+            g.xref_mailing_activities[indiv_id].add(semi_sep_value.strip())
+    
 
 
 #######################################################################################################################
@@ -221,6 +242,11 @@ def get_xref_w2s_skills_sgifts():
             'Prophecy': ('spiritual gifts', 'Prophecy'),
             'Teaching': ('spiritual gifts', 'Teaching'),
             'Word of Wisdom': ('spiritual gifts', 'Wisdom')
+        },
+        'Mailing Lists':
+        {
+            'Golf Outing': ('abilities', 'Sports: Golf'),
+            '2015 Golf Outing': ('abilities', 'Sports: Golf')
         }
     }
     return xref_w2s_skills_sgifts_mappings
@@ -1270,10 +1296,8 @@ def get_summarization_row(table):
         print 'Storing summarization under CCB column: ' + ccb_col_name
         header_summarization[ccb_col_name] = summary_str
 
-    print header_summarization
     header_row = petl.header(table)
     prepended_row = [header_summarization[x] if x in header_summarization else '' for x in header_row]
-    print prepended_row
     return prepended_row
 
 
