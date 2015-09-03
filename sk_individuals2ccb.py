@@ -26,8 +26,10 @@ def main(argv):
     global g
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--individuals-filename", required=True, help="Input CSV with individuals data dumped " \
+    parser.add_argument("--individuals-filename", required=True, help="Input UTF8 CSV with individuals data dumped " \
         "from Servant Keeper")
+    parser.add_argument("--families-filename", required=True, help="Input UTF8 CSV with families data ('Family " \
+        "Mailing Lists') dumped from Servant Keeper")
     parser.add_argument("--output-filename", required=True, help="Output CSV filename which will be loaded with " \
         "individuals data in CCB import format ")
     parser.add_argument('--trace', action='store_true', help="If specified, prints to stdout as new columns are "
@@ -39,6 +41,12 @@ def main(argv):
         sys.exit(1)
 
     table = petl.fromcsv(g.args.individuals_filename)
+
+    # CAREFUL about interpreting joined 'Family Mailing Lists' field as should only count if associated with
+    # a 'Primary Contact' individual which is not determined until later when convert_family_position() is
+    # triggered
+    table_families = petl.fromcsv(g.args.families_filename)
+    table = petl.leftjoin(table, table_families, 'Family ID')
 
     # Rename the first and second 'General Notes' columns to be 'Family Notes' and 'Individual Notes' respectively
     header_row = petl.header(table)
@@ -61,10 +69,9 @@ def main(argv):
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Skills')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Spiritual Gifts')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Mailing Lists')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Family Mailing Lists', primary_contact_only=True)
 
     g.dict_family_id_counts = petl.valuecounter(table, 'Family ID')
-
-    # g.xref_mailing_activities = get_semi_settings(table, 'Mailing List')
 
     # print hitmiss_counters
     # for sk_field in hitmiss_counters:
@@ -128,35 +135,13 @@ def trace(msg_str, banner=False):
 
 
 #######################################################################################################################
-# 'XRef-Mail Lists...  Semi-colon sep field collector
-#######################################################################################################################
-
-def get_semi_settings(table, field_name):
-    """Walks through specified field and for 'individual id' accumulates entries in g.xref_mailing_activities dict
-    structured as:
-        <individual_id>: set(<all tags picked off field_name plus other field_names from prior calls>)
-    NOTE: This counts on not having same named but different contextual tags across all field_name's accumulated
-    by this method."""
-
-    non_blank_rows = petl.selectisnot(table, field_name, u'')
-    for indiv_id, semi_sep_field in non_blank_rows.values('Individual ID', field_name):
-        for semi_sep_value in semi_sep_field.split(';'):
-            if indiv_id not in g.xref_mailing_activities:
-                g.xref_mailing_activities[indiv_id] = set()
-            g.xref_mailing_activities[indiv_id].add(semi_sep_value.strip())
-    
-
-
-#######################################################################################################################
 # 'XRef-XRef-W2S, Skills, SGifts' semi-colon field gathering
 #######################################################################################################################
 
-def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
+def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name, primary_contact_only=False):
     global g
 
-    if not field_name in g.xref_w2s_skills_sgifts:
-        print >> sys.stderr, '*** Unknown Servant Keeper field: ' + field_name
-        sys.exit(1)
+    assert field_name in g.xref_w2s_skills_sgifts, '*** Unknown Servant Keeper field: ' + field_name
     non_blank_rows = petl.selectisnot(table, field_name, u'')
     for indiv_id2semi_sep in petl.values(non_blank_rows, 'Individual ID', field_name):
         individual_id = indiv_id2semi_sep[0]
@@ -167,11 +152,15 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name):
                 ccb_flag_to_set = g.xref_w2s_skills_sgifts[field_name][skill_gift][1]
                 if not individual_id in g.semicolon_sep_fields:
                     semicolon_sep_fields[individual_id] = {
-                        'spiritual gifts': set(),
-                        'passions': set(),
-                        'abilities': set()
+                        'spiritual gifts': [set(), set()],
+                        'passions': [set(), set()],
+                        'abilities': [set(), set()]
                     }
-                g.semicolon_sep_fields[individual_id][ccb_area].add(ccb_flag_to_set)
+                add_at_offset = 0
+                if primary_contact_only:
+                    add_at_offset = 1
+                g.semicolon_sep_fields[individual_id][ccb_area][add_at_offset].add(ccb_flag_to_set)
+                # NOTE:  TODO, hitmiss accounting will be screwed up by family-level (Primary Contact Only) fields
                 record_hitmiss(field_name, skill_gift, 1)
             else:
                 record_hitmiss(field_name, skill_gift, -1)
@@ -244,6 +233,11 @@ def get_xref_w2s_skills_sgifts():
             'Word of Wisdom': ('spiritual gifts', 'Wisdom')
         },
         'Mailing Lists':
+        {
+            'Golf Outing': ('abilities', 'Sports: Golf'),
+            '2015 Golf Outing': ('abilities', 'Sports: Golf')
+        },
+        'Family Mailing Lists':
         {
             'Golf Outing': ('abilities', 'Sports: Golf'),
             '2015 Golf Outing': ('abilities', 'Sports: Golf')
@@ -509,10 +503,20 @@ def xref_member_field_value(row, field_str):
 
 
 def xref_w2s_gather(row, gather_str):
+    # NOTE: This method counts on all convert_family_position() calls happening to set up 'Primary Contact' *before*
+    # this method is called
     global g
+    return_set = set()
     indiv_id = row['Individual ID']
     if indiv_id in g.semicolon_sep_fields:
-        return ';'.join(g.semicolon_sep_fields[indiv_id][gather_str])
+        for elem in g.semicolon_sep_fields[indiv_id][gather_str][0]:
+            return_set.add(elem)
+        if row['family position'] == 'Primary Contact':
+            for elem in g.semicolon_sep_fields[indiv_id][gather_str][1]:
+                print "Adding 'Family Mailing List' element '" + elem + "' for a 'Primary Contact' (" + \
+                    row['First Name'] + ' ' + row['Last Name'] + ')'
+                return_set.add(elem)
+        return ';'.join(return_set)
     else:
         return ''
 
