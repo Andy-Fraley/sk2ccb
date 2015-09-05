@@ -8,7 +8,6 @@ import sys, os.path, csv, argparse, petl, re, datetime, shutil, tempfile
 class g:
     args = None
     xref_member_fields = None
-    xref_how_sourced = None
     xref_w2s_skills_sgifts = None
     hitmiss_counters = None
     semicolon_sep_fields = None
@@ -19,6 +18,7 @@ class g:
     total_rows = None
     dict_family_id_counts = None
     xref_mailing_activities = None
+    blanked_sk_field_contents_notes = None
 
 
 def main(argv):
@@ -57,9 +57,6 @@ def main(argv):
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
     g.xref_member_fields = get_xref_member_fields()
-
-    # Do single xref mapping specified in 'XRef-How Sourced' tab of mapping spreadsheet
-    g.xref_how_sourced = get_xref_how_sourced()
 
     # Do xref mappings specified in 'XRef-W2S, Skills, SGifts' tab of mapping spreadsheet
     g.xref_w2s_skills_sgifts = get_xref_w2s_skills_sgifts()
@@ -141,7 +138,7 @@ def trace(msg_str, banner=False):
 def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name, primary_contact_only=False):
     global g
 
-    assert field_name in g.xref_w2s_skills_sgifts, '*** Unknown Servant Keeper field: ' + field_name
+    assert field_name in g.xref_w2s_skills_sgifts, '*** Unknown Servant Keeper field: ' + field_name + '. Aborting...'
     non_blank_rows = petl.selectisnot(table, field_name, u'')
     for indiv_id2semi_sep in petl.values(non_blank_rows, 'Individual ID', field_name):
         individual_id = indiv_id2semi_sep[0]
@@ -269,32 +266,6 @@ def record_hitmiss(sk_field, item, count):
 
 
 #######################################################################################################################
-# 'XRef-How Sourced' mapping behaviors declaration
-#######################################################################################################################
-
-def get_xref_how_sourced():
-    xref_how_sourced = {
-        'Attendance Roster': '',
-        'Connect Card': '',
-        'Moved to New Family': '',
-        'New Member Class': '',
-        'Acts of God': 'Event: Acts of God',
-        'Vacation Bible School': 'Event: Children',
-        'Donation - Ingomar Living Water': 'Event: Living Water',
-        'Rummage Sale': 'Event: Rummage Sale',
-        'Wellness Ministry': 'Event: Wellness',
-        'Philippi': 'Event: Youth',
-        'Youth Group': 'Event: Youth',
-        'Baptism': 'Other',
-        'Donation - Non-Outreach': 'Other',
-        'Other': 'Other',
-        'Small Group': 'Small Group',
-        '': ''
-    }
-    return xref_how_sourced
-
-
-#######################################################################################################################
 # 'XRef-Member Status' mapping behaviors declaration
 #######################################################################################################################
 
@@ -302,7 +273,7 @@ def get_xref_member_fields():
     xref_member_fields = {
         'Active Member': {
             'membership type': 'Member - Active',
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': get_date_joined,
             'reason left': '',
             'membership stop date': '',
@@ -310,7 +281,7 @@ def get_xref_member_fields():
         },
         'Inactive Member': {
             'membership type': 'Member - Inactive',
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': get_date_joined,
             'reason left': '',
             'membership stop date': '',
@@ -318,7 +289,7 @@ def get_xref_member_fields():
         },
         'Regular Attendee': {
             'membership type': 'Regular Attendee',
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': '',
             'reason left': '',
             'membership stop date': '',
@@ -326,7 +297,7 @@ def get_xref_member_fields():
         },
         'Visitor': {
             'membership type': 'Guest',
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': '',
             'reason left': '',
             'membership stop date': '',
@@ -334,7 +305,7 @@ def get_xref_member_fields():
         },
         'Non-Member': {
             'membership type': get_sourced_donor_or_biz,
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': '',
             'reason left': '',
             'membership stop date': '',
@@ -342,7 +313,7 @@ def get_xref_member_fields():
         },
         'Pastor': {
             'membership type': 'Pastor',
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': '',
             'reason left': '',
             'membership stop date': '',
@@ -374,7 +345,7 @@ def get_xref_member_fields():
         },
         'No Longer Attend': {
             'membership type': 'Friend',
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': '',
             'reason left': 'No Longer Attend',
             'membership stop date': '',
@@ -398,7 +369,7 @@ def get_xref_member_fields():
         },
         'Withdrawal': {
             'membership type': 'Friend',
-            'inactive/remove': '',
+            'inactive/remove': 'No',
             'membership date': get_date_joined,
             'reason left': 'Withdrawal',
             'membership stop date': get_trf_out_date,
@@ -523,10 +494,31 @@ def xref_w2s_gather(row, gather_str):
 
 def is_only_family_member(row):
     global g
-    assert row['Family ID'] != '', "Row has blank 'Family ID'. " + str(row)
+    assert row['Family ID'] != '', row_info_and_msg(row, "Row has blank 'Family ID'.")
     return g.dict_family_id_counts[row['Family ID']] == 1
 
-    
+
+def row_info_and_msg(row, msg_str):
+    row_info_str = row['First Name'] + ' ' + row['Last Name'] + ' (' + row['Individual ID'] + ')'
+    return row_info_str + '. ' + msg_str
+
+
+def date_format(date):
+    return str(date.year) + '-' + str(date.month) + '-' + str(date.day)
+
+
+def add_invalid_sk_field_contents_to_notes(row, value, sk_col_name):
+    global g
+    append_indexed_dict_string(row['Individual ID'], g.blanked_sk_field_contents_notes, "Servant Keeper field '" + \
+        sk_col_name + "' had value '" + value + "' which could not be loaded into CCB.")
+
+
+def append_indexed_dict_string(index, indexed_dict, append_str):
+    if not index in indexed_dict:
+        indexed_dict[index] = append_str
+    indexed_dict[index] += '\n\n' + append_str
+
+
 #######################################################################################################################
 # Field converter methods (convert_xyz)
 #######################################################################################################################
@@ -536,13 +528,14 @@ def convert_date(value, row, sk_col_name, ccb_col_name):
     else it is set to blank ('')."""
 
     try:
-        d = datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
-        new_value = d.strftime('%Y-%m-%d')
+        date = datetime.datetime.strptime(value.strip(), '%m/%d/%Y')
+        new_value = date_format(date)
     except ValueError:
         new_value = ''
     except:
         raise
     if new_value == '' and not re.match(r'(\s+/\s+/\s+)|(^$)', value):
+        add_invalid_sk_field_contents_to_notes(row, value, sk_col_name)
         conversion_trace(row, "Blanked invalid date: '" + value + "'", sk_col_name, ccb_col_name)
     return new_value
 
@@ -555,6 +548,7 @@ def convert_phone(value, row, sk_col_name, ccb_col_name):
     else:
         new_value = ''
         if not re.match(r'\s+\-\s+\-\s+', value):
+            add_invalid_sk_field_contents_to_notes(row, value, sk_col_name)
             conversion_trace(row, "Blanked invalid phone number: '" + value + "'", sk_col_name, ccb_col_name)
     return new_value
 
@@ -579,6 +573,9 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
     }
     new_value = conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, 'Other',
         trace_other=True)
+    # TODO - Un-comment this when get new data from Carol
+    #assert new_value == 'Primary Contact' or not is_only_family_member(row), row_info_and_msg(row, "A one-member " \
+    #    "family has a member who is not 'Primary Contact'.  This should NEVER occur.  Aborting...")
     if new_value != 'Primary Contact' and is_only_family_member(row):
         conversion_trace(row, "'" + new_value + "' changed to 'Primary Contact', since only member of family ID '" + \
             str(row['Family ID']) + "'", sk_col_name, ccb_col_name)
@@ -676,13 +673,13 @@ def convert_membership_stop_date(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_membership_type(value, row, sk_col_name, ccb_col_name):
-    """This field has a complex mapping which is basically as follows:
+    """This field has a complex mapping based on Servant Keeper 'Member Status' (and 'How Sourced?') fields as follows:
         'Active Member' -> 'Member - Active',
         'Inactive Member' -> 'Member - Inactive',
         'Regular Attendee' -> 'Regular Attendee',
         'Visitor' -> 'Guest',
-        'Non-Member (How Sourced ? <> 'Donation...')' -> 'Friend',
-        'Non-Member (How Sourced ? == 'Donation...')' -> 'Donor',
+        'Non-Member ('How Sourced?' <> 'Donation...')' -> 'Friend',
+        'Non-Member ('How Sourced?' == 'Donation...')' -> 'Donor',
         'Pastor' -> 'Pastor',
         'Deceased - Member' -> 'Member - Inactive',
         'Deceased - Non-Member' -> 'Friend',
@@ -715,13 +712,13 @@ def convert_country(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
-    """Based on the following values of Servant Keeper's 'Member Status' field, this field is mapped as follows:
+    """This field has a complex mapping based on Servant Keeper 'Member Status' (and 'How Sourced?') fields as follows:
         'Active Member' -> blank ('', i.e. active so retain),
         'Inactive Member' -> blank ('', i.e. active so retain),
         'Regular Attendee' -> blank ('', i.e. active so retain),
         'Visitor' -> blank ('', i.e. active so retain),
-        'Non-Member (How Sourced ? <> 'Donation...')' -> blank ('', i.e. active so retain),
-        'Non-Member (How Sourced ? == 'Donation...')' -> blank ('', i.e. active so retain),
+        'Non-Member ('How Sourced?' <> 'Donation...')' -> blank ('', i.e. active so retain),
+        'Non-Member ('How Sourced?' == 'Donation...')' -> blank ('', i.e. active so retain),
         'Pastor' -> blank ('', i.e. active so retain),
         'Deceased - Member' -> 'Yes' (i.e. inactive so remove),
         'Deceased - Non-Member' -> 'Yes' (i.e. inactive so remove),
@@ -747,21 +744,33 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
     with 'FAMILY NOTES:' (if present and if this individual is 'Primary Contact') and 'INDIVIDUAL NOTES:' (if
     present)."""
 
+    global g
     family_notes_str = None
     individual_notes_str = None
-    # TODO - if we decide to count every family with only one individual as 'Primary' contact, then logic below
-    # changes (not looking up 'Relationship' == 'Head of Household' in Servant Keeper)
-    if row['Relationship'] == 'Head of Household' and row['Family Notes']:
+    conversion_notes_str = None
+
+    # Note - For look-up below to work, the 'family position' field MUST be convert()'d prior to this 'notes' field
+    if row['family position'] == 'Primary Contact' and row['Family Notes']:
         family_notes_str = '\n\nSERVANT KEEPER FAMILY NOTES:\n\n' + row['Family Notes']
+
     if row['Individual Notes']:
         individual_notes_str = '\n\nSERVANT KEEPER INDIVIDUAL NOTES:\n\n' + row['Individual Notes']
-    if family_notes_str or individual_notes_str:
-        output_str = 'THESE NOTES WERE CONVERTED FROM SERVANT KEEPER ({})'.format(
+
+    # Note - For look-up below to work, this convert() must run after ALL convert_date() and convert_phone()
+    # conversions
+    if row['Individual ID'] in g.blanked_sk_field_contents_notes:
+        conversion_notes_str = '\n\nSERVANT KEEPER -> CCB CONVERSION ISSUES:\n\n' + \
+            g.blanked_sk_field_contents_notes[row['Individual ID']]
+
+    if family_notes_str or individual_notes_str or conversion_notes_str:
+        output_str = 'THESE NOTES ARE FROM SERVANT KEEPER CONVERSION ({})'.format(
             datetime.datetime.now().strftime('%Y-%m-%d %H:%M'))
         if family_notes_str:
             output_str += family_notes_str
         if individual_notes_str:
             output_str += individual_notes_str
+        if conversion_notes_str:
+            output_str += conversion_notes_str
         #print '-->\n' + output_str + '\n<--\n'
         return output_str
     else:
@@ -770,7 +779,7 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
-    """This field is mapped based on Servant Keeper's 'How Sourced' column as follows:
+    """This field is remapped as follows:
         'Acts of God' -> 'Event: Acts of God',
         'Vacation Bible School' -> 'Event: Children',
         'Donation - Ingomar Living Water' -> 'Event: Living Water',
@@ -783,9 +792,20 @@ def convert_how_they_heard(value, row, sk_col_name, ccb_col_name):
         'Other' -> 'Other',
         'Small Group' -> 'Small Group'."""
 
-    global g
-    value = g.xref_how_sourced[row['How Sourced?']]
-    return value
+    convert_dict = {
+        'Acts of God': 'Event: Acts of God',
+        'Vacation Bible School': 'Event: Children',
+        'Donation - Ingomar Living Water': 'Event: Living Water',
+        'Rummage Sale': 'Event: Rummage Sale',
+        'Wellness Ministry': 'Event: Wellness',
+        'Philippi': 'Event: Youth',
+        'Youth Group': 'Event: Youth',
+        'Baptism': 'Other',
+        'Donation - Non-Outreach': 'Other',
+        'Other': 'Other',
+        'Small Group': 'Small Group',
+    }
+    return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=False)
 
 
 def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
@@ -932,6 +952,7 @@ def setup_column_conversions(table):
 
     g.header_comments = {}
     g.conversion_traces = {}
+    g.blanked_sk_field_contents_notes = {}
 
     field_ccb_name = 0
     field_sk_name = 1
@@ -1016,7 +1037,7 @@ def get_field_mappings():
         ['legal name', 'First Name'],
         ['Limited Access User', None, convert_limited_access_user],
         ['Listed', None, convert_listed],
-        ['inactive/remove', 'Active Profile', convert_inactive_remove],
+        ['inactive/remove', None, convert_inactive_remove],
         ['campus', None, 'Ingomar Church'],
         ['email', 'Individual e-Mail'],
         ['mailing street', 'Address'],
@@ -1054,12 +1075,11 @@ def get_field_mappings():
         ['school grade'],
         ['known allergies'],
         ['confirmed no allergies'],
-        ['notes', None, convert_notes],
         ['approved to work with children'],
         ['approved to work with children stop date'],
         ['commitment date'],
-        ['how they heard', None, convert_how_they_heard],
-        ['how they joined', None, convert_how_they_joined],
+        ['how they heard', 'How Sourced?', convert_how_they_heard],
+        ['how they joined', 'How Joined', convert_how_they_joined],
         ['reason left church', None, convert_reason_left_church],
         ['job title', 'Occupation'],
         ['work street 1'],
@@ -1114,20 +1134,21 @@ def get_field_mappings():
         ['church transferred from', 'Church Transferred From', None, 'custom-text'],
         ['church transferred to', 'Church Transferred To', None, 'custom-text'],
         ['pastor when joined', 'Pastor when joined', None, 'custom-text'],
-        ['pastor when leaving', 'Pastor when leaving', None, 'custom-text']
+        ['pastor when leaving', 'Pastor when leaving', None, 'custom-text'],
+
+        # Notes field last so it can accumulate notes about all invalid dates/phones in SK, and so it can rely
+        # on 'Primary Contact' already having been set
+        ['notes', None, convert_notes]
     ]
     return field_mappings
-    
+
 
 def add_header_comment(val_field_ccb_name, header_str):
     global g
     if not header_str:
         return
     header_str = format_header_comment(header_str)
-    if val_field_ccb_name not in g.header_comments:
-        g.header_comments[val_field_ccb_name] = header_str
-    else:
-        g.header_comments[val_field_ccb_name] += ('\n\n' + header_str)
+    append_indexed_dict_string(val_field_ccb_name, g.header_comments, header_str)
 
 
 def format_header_comment(header_str):
