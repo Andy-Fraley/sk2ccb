@@ -484,8 +484,6 @@ def xref_w2s_gather(row, gather_str):
             return_set.add(elem)
         if row['family position'] == 'Primary Contact':
             for elem in g.semicolon_sep_fields[indiv_id][gather_str][1]:
-                print "Adding 'Family Mailing List' element '" + elem + "' for a 'Primary Contact' (" + \
-                    row['First Name'] + ' ' + row['Last Name'] + ')'
                 return_set.add(elem)
         return ';'.join(return_set)
     else:
@@ -632,10 +630,17 @@ def convert_limited_access_user(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_listed(value, row, sk_col_name, ccb_col_name):
-    """By setting to 'Yes', we intend all users to be visible / 'Listed' (except those auto-limited by birthday date
-    and age detection in CCB, of course)."""
+    """Children ('family position' == 'Child') with blank 'confirmed date' and blank 'birthday' will be made
+    'Listed'='No'.  Children with valid 'confirmed date' or valid 'birthday' will be made 'Listed'='Yes'."""
 
-    return 'Yes'
+    assert not (row['confirmed date'] != '' and row['confirmed'] == 'No'), row_info_and_msg(row,
+        "Row has valid 'confirmed date' but indicates 'confirmed' == 'No'.")
+
+    if row['family position'] == 'Child' and row['confirmed date'] == '' and row['birthday'] == '':
+        new_value = 'No'
+    else:
+        new_value = 'Yes'
+    return new_value
 
 
 def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
@@ -739,22 +744,27 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
 
 def convert_notes(value, row, sk_col_name, ccb_col_name):
     """This field is formed from both 'Family Notes' (1st 'General Notes') and 'Individual Notes' (2nd 'General Notes')
-    fields from Servant Keeper.  It is pre-pended by language indicating it's from Servant Keeper 'General Notes' and
-    with a date-time stamp of the time that transform utility was run.  The separate notes sections are pre-pended
-    with 'FAMILY NOTES:' (if present and if this individual is 'Primary Contact') and 'INDIVIDUAL NOTES:' (if
-    present)."""
+    and 'Family Relationship' fields from Servant Keeper.  It is pre-pended by language indicating it's from
+    Servant Keeper 'General Notes' and with a date-time stamp of the time that transform utility was run.
+    The separate notes sections are pre-pended with 'FAMILY NOTES:' (if present and if this individual is
+    'Primary Contact') and 'INDIVIDUAL NOTES:' (if present) and 'FAMILY RELATIONSHIP NOTES:' (if present)."""
 
     global g
     family_notes_str = None
     individual_notes_str = None
+    family_relationship_notes_str = None
     conversion_notes_str = None
 
     # Note - For look-up below to work, the 'family position' field MUST be convert()'d prior to this 'notes' field
     if row['family position'] == 'Primary Contact' and row['Family Notes']:
-        family_notes_str = '\n\nSERVANT KEEPER FAMILY NOTES:\n\n' + row['Family Notes']
+        family_notes_str = '\n\nSERVANT KEEPER - FAMILY NOTES:\n\n' + row['Family Notes']
 
     if row['Individual Notes']:
-        individual_notes_str = '\n\nSERVANT KEEPER INDIVIDUAL NOTES:\n\n' + row['Individual Notes']
+        individual_notes_str = '\n\nSERVANT KEEPER - INDIVIDUAL NOTES:\n\n' + row['Individual Notes']
+
+    if row['Family Relationship']:
+        family_relationship_notes_str = '\n\nSERVANT KEEPER - FAMILY RELATIONSHIP NOTES:\n\n' + \
+            row['Family Relationship']
 
     # Note - For look-up below to work, this convert() must run after ALL convert_date() and convert_phone()
     # conversions
@@ -762,19 +772,19 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
         conversion_notes_str = '\n\nSERVANT KEEPER -> CCB CONVERSION ISSUES:\n\n' + \
             g.blanked_sk_field_contents_notes[row['Individual ID']]
 
-    if family_notes_str or individual_notes_str or conversion_notes_str:
+    if family_notes_str or individual_notes_str or family_relationship_notes_str or conversion_notes_str:
         output_str = 'THESE NOTES ARE FROM SERVANT KEEPER CONVERSION ({})'.format(
             datetime.datetime.now().strftime('%Y-%m-%d %H:%M'))
         if family_notes_str:
             output_str += family_notes_str
         if individual_notes_str:
             output_str += individual_notes_str
+        if family_relationship_notes_str:
+            output_str += family_relationship_notes_str
         if conversion_notes_str:
             output_str += conversion_notes_str
-        #print '-->\n' + output_str + '\n<--\n'
         return output_str
     else:
-        #print '-->\n<--\n'
         return ''
 
 
@@ -1035,8 +1045,6 @@ def get_field_mappings():
         ['last name', 'Last Name'],
         ['suffix', 'Suffix', convert_suffix],
         ['legal name', 'First Name'],
-        ['Limited Access User', None, convert_limited_access_user],
-        ['Listed', None, convert_listed],
         ['inactive/remove', None, convert_inactive_remove],
         ['campus', None, 'Ingomar Church'],
         ['email', 'Individual e-Mail'],
@@ -1135,6 +1143,11 @@ def get_field_mappings():
         ['church transferred to', 'Church Transferred To', None, 'custom-text'],
         ['pastor when joined', 'Pastor when joined', None, 'custom-text'],
         ['pastor when leaving', 'Pastor when leaving', None, 'custom-text'],
+
+        # Putting these fields towards the end so that dependent 'birthday' and 'confirmed' fields can be stuffed
+        # before
+        ['Limited Access User', None, convert_limited_access_user],
+        ['Listed', None, convert_listed],
 
         # Notes field last so it can accumulate notes about all invalid dates/phones in SK, and so it can rely
         # on 'Primary Contact' already having been set
