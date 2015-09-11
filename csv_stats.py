@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
 import sys, os.path, csv, argparse, petl, re, datetime, shutil, tempfile
 
 
@@ -46,14 +45,14 @@ def main(argv):
             column_prefix = 'CCB '
         if args.skip_columns is None or not column in args.skip_columns:
             output_str = column_prefix + "Column '" + column + "'"
-            print(sep + output_str, file=sys.stdout)
-            print(output_str, file=sys.stderr)
+            print sep + output_str
+            print >> sys.stderr, output_str
             if args.semi_sep_columns is not None and column in args.semi_sep_columns:
                 output_str = num_dict2str(dict_dump(semi_sep_valuecounter(table, column)))
-                print(output_str, file=sys.stdout)
+                print output_str
             else:
                 output_str = num_dict2str(dict_dump(valuecounts(table, column)))
-                print(output_str, file=sys.stdout)
+                print output_str
         sep = '\n'
 
 
