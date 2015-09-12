@@ -11,7 +11,7 @@ def main(argv):
     parser.add_argument("--attendance-filename", required=True, nargs='+', action='append', \
         help="Attendance filename (input Servant Keeper attendance report file(s)...can be wildcard)")
     parser.add_argument("--mapping-filename", required=True, help="'Mapping' filename (CSV mapping file with " \
-        "'last_name', 'first_name' and 'sk_ind_id' columns)")
+        "'Last Name', 'Preferred Name' and 'Individual ID' Servant Keeper data columns)")
     parser.add_argument("--output-filename", required=True, help="'Output' filename (output loading CSV file " \
                         "containing resulting <date>, <time>, <ccb_event_id>, <sk_indiv_id> data)")
     parser.add_argument('--emit-data-csvs', action='store_true', help="If specified, output a CSV file per input " \
@@ -69,25 +69,25 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
     # CCB's Worship Service event IDs...
     # TODO!  Plug these with actuals out of CCB once worship service events created
     event_ids = {}
-    event_ids['9'] = 1
-    event_ids['10'] = 2
-    event_ids['11:15'] = 3
-    event_ids['8'] = 4
+    event_ids['8'] = 6
+    event_ids['9'] = 7
+    event_ids['10'] = 8
+    event_ids['11:15'] = 9
 
     # The following are used to create CSV output filenames and to emit human-readable event name if add_extra_fields
     # flag is on
     event_names = {}
-    event_names[1] = '09am'
-    event_names[2] = '10am'
-    event_names[3] = '11_15am'
-    event_names[4] = '08am'
+    event_names[6] = '08am'
+    event_names[7] = '09am'
+    event_names[8] = '10am'
+    event_names[9] = '11_15am'
 
     # Time of event in Excel-parseable format
     event_times = {}
-    event_times[1] = '09:00 AM'
-    event_times[2] = '10:00 AM'
-    event_times[3] = '11:15 AM'
-    event_times[4] = '08:00 AM'
+    event_times[6] = '08:00 AM'
+    event_times[7] = '09:00 AM'
+    event_times[8] = '10:00 AM'
+    event_times[9] = '11:15 AM'
 
     # Starting state...
     prior_line = None

@@ -55,6 +55,10 @@ def main(argv):
                 print output_str
         sep = '\n'
 
+    # Flush to ensure all output is written
+    sys.stdout.flush()
+    sys.stderr.flush()
+
 
 def semi_sep_valuecounter(table, col_name):
     dict_semi_sep = {}

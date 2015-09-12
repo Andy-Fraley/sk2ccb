@@ -26,11 +26,11 @@ def main(argv):
     global g
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--individuals-filename", required=True, help="Input UTF8 CSV with individuals data dumped " \
-        "from Servant Keeper")
-    parser.add_argument("--families-filename", required=True, help="Input UTF8 CSV with families data ('Family " \
+    parser.add_argument("--individuals-filename", required=True, help="Input UTF8 CSV with individuals data "
+        "dumped from Servant Keeper")
+    parser.add_argument("--families-filename", required=True, help="Input UTF8 CSV with families data ('Family "
         "Mailing Lists') dumped from Servant Keeper")
-    parser.add_argument("--output-filename", required=True, help="Output CSV filename which will be loaded with " \
+    parser.add_argument("--output-filename", required=True, help="Output CSV filename which will be loaded with "
         "individuals data in CCB import format ")
     parser.add_argument('--trace', action='store_true', help="If specified, prints to stdout as new columns are "
         "added")
@@ -85,18 +85,16 @@ def main(argv):
 
     trace('OUTPUT TO CSV COMPLETE.', banner=True)
 
-    trace('CREATING TRANSFORMATION SUMMARIZATIONS.', banner=True)
+    trace('WRITING HEADER COMMENTS...', banner=True)
 
     table = petl.fromcsv(g.args.output_filename)
 
-    summarization_row = get_summarization_row(table)
-
-    insert_header_comments_and_summarization_row(table, g.args.output_filename, summarization_row)
+    insert_header_comments_row(table, g.args.output_filename)
 
     trace('DONE!', banner=True)
 
 
-def insert_header_comments_and_summarization_row(table, filename, summarization_row):
+def insert_header_comments_row(table, filename):
     global g
     table_header = petl.header(table)
     prepended_header = [g.header_comments[x] if x in g.header_comments else '' for x in table_header]
@@ -105,7 +103,6 @@ def insert_header_comments_and_summarization_row(table, filename, summarization_
         temp.close()
     with open(tmp_filename, 'wb') as csvfile_w:
         csv_writer = csv.writer(csvfile_w)
-        csv_writer.writerow(summarization_row)
         csv_writer.writerow(prepended_header)
         with open(filename, 'rb') as csvfile_r:
             csv_reader = csv.reader(csvfile_r)
@@ -439,7 +436,6 @@ def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
     else:
         prefix_str = "Converting blank '" + ccb_col_name + "'. "
     g.conversion_traces[indiv_id].append(prefix_str + msg_str)
-    # trace('*** Conversion warning. ' + member_str + prefix_str + msg_str)
 
 
 def conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, other, trace_other=False):
@@ -636,7 +632,8 @@ def convert_listed(value, row, sk_col_name, ccb_col_name):
     assert not (row['confirmed date'] != '' and row['confirmed'] == 'No'), row_info_and_msg(row,
         "Row has valid 'confirmed date' but indicates 'confirmed' == 'No'.")
 
-    if row['family position'] == 'Child' and row['confirmed date'] == '' and row['birthday'] == '':
+    if (row['family position'] == 'Child' or row['family position'] == 'Other') and row['confirmed date'] == '' \
+       and row['birthday'] == '':
         new_value = 'No'
     else:
         new_value = 'Yes'
@@ -743,11 +740,12 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_notes(value, row, sk_col_name, ccb_col_name):
-    """This field is formed from both 'Family Notes' (1st 'General Notes') and 'Individual Notes' (2nd 'General Notes')
-    and 'Family Relationship' fields from Servant Keeper.  It is pre-pended by language indicating it's from
-    Servant Keeper 'General Notes' and with a date-time stamp of the time that transform utility was run.
-    The separate notes sections are pre-pended with 'FAMILY NOTES:' (if present and if this individual is
-    'Primary Contact') and 'INDIVIDUAL NOTES:' (if present) and 'FAMILY RELATIONSHIP NOTES:' (if present)."""
+    """This field is formed from both 'Family Notes' (1st 'General Notes') and 'Individual Notes' (2nd
+    'General Notes') and 'Family Relationship' fields from Servant Keeper.  It is pre-pended by language
+    indicating it's from Servant Keeper 'General Notes' and with a date-time stamp of the time that
+    transform utility was run. The separate notes sections are pre-pended with 'FAMILY NOTES:' (if present
+    and if this individual is 'Primary Contact') and 'INDIVIDUAL NOTES:' (if present) and
+    'FAMILY RELATIONSHIP NOTES:' (if present)."""
 
     global g
     family_notes_str = None
@@ -755,7 +753,8 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
     family_relationship_notes_str = None
     conversion_notes_str = None
 
-    # Note - For look-up below to work, the 'family position' field MUST be convert()'d prior to this 'notes' field
+    # Note - For look-up below to work, the 'family position' field MUST be convert()'d prior to this
+    # 'notes' field
     if row['family position'] == 'Primary Contact' and row['Family Notes']:
         family_notes_str = '\n\nSERVANT KEEPER - FAMILY NOTES:\n\n' + row['Family Notes']
 
@@ -940,14 +939,48 @@ def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
     return xref_w2s_gather(row, 'abilities')
 
 
+def convert_burial_information(value, row, sk_col_name, ccb_col_name):
+    """This field contains formatted burial information that is to be placed in a Note associated with the
+    'Death' process 'Record Burial Information' queue."""
+    new_value = ''
+    sep = 'BURIAL INFORMATION (FROM SERVANT KEEPER)\n\n'
+    burial_date = convert_date(row['Burial: Date'], row, 'Burial: Date', ccb_col_name)
+    if burial_date != '':
+        burial_date_obj = datetime.datetime.strptime(burial_date, '%Y-%m-%d')
+        burial_date_str = str(burial_date_obj.month) + '/' + str(burial_date_obj.day) + '/' + str(burial_date_obj.year)
+        new_value += sep + 'Burial Date: ' + burial_date_str
+        sep = '\n'
+    if row['Burial: Officating Pastor'].strip() != '':
+        new_value += sep + 'Burial Officiating Pastor: ' + row['Burial: Officating Pastor'].strip()
+        sep = '\n'
+    if row['Burial: Site Title'].strip() != '':
+        new_value += sep + 'Burial Site Title: ' + row['Burial: Site Title'].strip()
+        sep = '\n'
+    if row['Burial: City, County, St'].strip() != '':
+        new_value += sep + 'Burial City, County, State: ' + row['Burial: City, County, St'].strip()
+        sep = '\n'
+    return new_value
+
+
+def convert_baptism_information(value, row, sk_col_name, ccb_col_name):
+    """This field contains formatted baptism information that is to be placed in a Note associated with the
+    'Baptism' process 'Record Baptism Information' queue."""
+    new_value = ''
+    sep = 'BAPTISM INFORMATION (FROM SERVANT KEEPER)\n\n'
+    if row['Place of Birth'].strip() != '':
+        new_value += sep + 'Place of Birth: ' + row['Place of Birth'].strip()
+        sep = '\n'
+    return new_value
+
+
 def convert_spirit_mailing(value, row, sk_col_name, ccb_col_name):
     """This field is remapped as follows:
         'Yes' -> 'Postal Mail',
-        'No' -> 'Email'."""
+        'No' -> 'None'."""
 
     convert_dict = {
         'Yes': 'Postal Mail',
-        'No': 'Email'
+        'No': 'None'
     }
     return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, None)
 
@@ -1019,6 +1052,16 @@ def setup_column_conversions(table):
     # This must be 'last' conversion so that it picks up warnings recorded in prior conversions
     table = petl.addfield(table, 'conversion trace', lambda rec: ';'.join(g.conversion_traces[rec['Individual ID']]) \
         if rec['Individual ID'] in g.conversion_traces else '')
+
+    # Put columns in better-to-read ordering to better allow for FREEZE WINDOW in Excel
+    l = list(petl.header(table))
+    l.remove('Last Name')
+    l.remove('First Name')
+    l.remove('Mailing Name')
+    l.insert(0, 'Mailing Name')
+    l.insert(0, 'First Name')
+    l.insert(0, 'Last Name')
+    table = petl.cut(table, l)
 
     return table
 
@@ -1119,16 +1162,14 @@ def get_field_mappings():
         ['other state', 'Alt State'],
         ['other_postal code', 'Alt Zip Code'],
 
-        # Guest folloowup process queue
+        # Guest followup process queue
         ['guest_followup 1 month', '1-Month Follow-up', convert_date, 'process_queue'],
         ['guest_followup 1 week', 'Wk 1 Follow-up', convert_date, 'process_queue'],
         ['guest_followup 2 weeks', 'Wk 2 Follow-up', convert_date, 'process_queue'],
 
-        # Burial folloowup process queue
-        ['burial city county state', 'Burial: City, County, St', None, 'process_queue'],
-        ['burial date', 'Burial: Date', convert_date, 'process_queue'],
-        ['burial officiating pastor', 'Burial: Officating Pastor', None, 'process_queue'],
-        ['burial site title', 'Burial: Site Title', None, 'process_queue'],
+        # Burial and Baptism process queue data
+        ["PROCESS='Death' QUEUE='Record Burial Information'", None, convert_burial_information, 'process_queue'],
+        ["PROCESS='Baptism' QUEUE='Record Baptism Information'", None, convert_baptism_information, 'process_queue'],
 
         # Custom fields
         ['baptism date', 'Baptized Date', convert_date, 'custom-pulldown'],
@@ -1182,7 +1223,6 @@ def format_header_comment(header_str):
             output_str += line + ' '
             prior_line_was_indented = False
     return output_str
-    # return re.sub(r'\s{5}', '\n    ', re.sub(r'\s*\n\s{4}', ' ', header_str))
 
 
 def get_descriptive_custom_or_process_queue_string(val_field_custom_or_process_queue):
@@ -1256,108 +1296,6 @@ def add_cloned_column_then_convert(table, val_field_ccb_name, val_field_sk_name,
     table = petl.convert(table, val_field_ccb_name, wrapped_converter_method(val_field_converter_method,
         sk_col_name=val_field_sk_name, ccb_col_name=val_field_ccb_name), pass_row=True, failonerror=True)
     return table
-
-
-def get_summarization_row(table):
-    summarizations_to_do = [
-        ['Relationship', 'family position'],
-        ['Title', 'prefix'],
-        ['Suffix', 'suffix'],
-        ['Member Status', 'inactive/remove'],
-        ['City', 'city'],
-        ['State', 'state'],
-        ['Zip Code', 'postal code'],
-        ['Country', 'country'],
-        ['City', 'home_city'],
-        ['State', 'home_state'],
-        ['Zip Code', 'home_postal code'],
-        ['Gender', 'gender'],
-        ['Marital Status', 'marital status'],
-        ['Member Status', 'membership type'],
-        ['Baptized', 'baptized'],
-        ['School District', 'school'],
-        ['How Sourced?', 'how they heard'],
-        ['How Joined', 'how they joined'],
-        ['Member Status', 'reason left church'],
-        ['Occupation', 'job title'],
-        [[';Skills', ';Spiritual Gifts'], ';spiritual_gifts'],
-        [[';Willing to Serve', ';Skills'], ';passions'],
-        [[';Willing to Serve', ';Skills'], ';abilities/skills'],
-        ['Alt Country', 'other country'],
-        ['Alt State', 'other state'],
-        ['Alt Zip Code', 'other_postal code'],
-        ['Confirmed', 'confirmed'],
-        ['The Spirit Mailing', 'spirit mailing'],
-        ['Photo Release', 'photo release'],
-        ['Racial/Ethnic identification', 'ethnicity']
-    ]
-
-    header_summarization = {}
-    for list_summarizations in summarizations_to_do:
-        summary_str = ''
-
-        if isinstance(list_summarizations[0], basestring):
-            list_of_sk_columns = [list_summarizations[0]]
-        elif isinstance(list_summarizations[0], list):
-            list_of_sk_columns = list_summarizations[0]
-        else:
-            raise TypeError('Expecting list or string')
-
-        for sk_col_name in list_of_sk_columns:
-            (semi_sep_flag, sk_col_name) = get_semi_sep_field(sk_col_name)
-            print "'Summarizing SK column distribution for: '" + sk_col_name + "'"
-            if semi_sep_flag:
-                dict_sk = semi_sep_valuecounter(table, sk_col_name)
-            else:
-                dict_sk = petl.valuecounter(table, sk_col_name)
-            summary_str += "Servant Keeper distribution for column '" + sk_col_name + "':\n"
-            total = 0
-            for key in dict_sk:
-                summary_str += "'" + key + "': " + str(dict_sk[key]) + '\n'
-                total += dict_sk[key]
-            summary_str += 'TOTAL: ' + str(total) + '\n\n'
-
-        ccb_col_name = list_summarizations[1]
-        (semi_sep_flag, ccb_col_name) = get_semi_sep_field(ccb_col_name)
-        print "'Summarizing CCB column distribution for: '" + ccb_col_name + "'"
-        if semi_sep_flag:
-            dict_ccb = semi_sep_valuecounter(table, ccb_col_name)
-        else:
-            dict_ccb = petl.valuecounter(table, ccb_col_name)
-        summary_str += "CCB distribution for column '" + ccb_col_name + "':\n"
-        total = 0
-        for key in dict_ccb:
-            summary_str += "'" + key + "': " + str(dict_ccb[key]) + '\n'
-            total += dict_ccb[key]
-        summary_str += 'TOTAL: ' + str(total)
-
-        print 'Storing summarization under CCB column: ' + ccb_col_name
-        header_summarization[ccb_col_name] = summary_str
-
-    header_row = petl.header(table)
-    prepended_row = [header_summarization[x] if x in header_summarization else '' for x in header_row]
-    return prepended_row
-
-
-def get_semi_sep_field(field_name_str):
-    if field_name_str[:1] == ';':
-        return (True, field_name_str[1:])
-    else:
-        return (False, field_name_str)
-
-
-def semi_sep_valuecounter(table, col_name):
-    dict_semi_sep = {}
-    for value in petl.values(table, col_name):
-        if value.strip() == '':
-            continue
-        else:
-            for semi_sep in value.split(';'):
-                semi_sep_str = semi_sep.strip()
-                if semi_sep_str not in dict_semi_sep:
-                    dict_semi_sep[semi_sep_str] = 0
-                dict_semi_sep[semi_sep_str] += 1
-    return dict_semi_sep
 
 
 if __name__ == "__main__":
