@@ -1053,6 +1053,7 @@ def setup_column_conversions(table):
     table = petl.addfield(table, 'conversion trace', lambda rec: ';'.join(g.conversion_traces[rec['Individual ID']]) \
         if rec['Individual ID'] in g.conversion_traces else '')
 
+    # TODO - Remove the reorder when Carol's extract is in right order
     # Put columns in better-to-read ordering to better allow for FREEZE WINDOW in Excel
     l = list(petl.header(table))
     l.remove('Last Name')
