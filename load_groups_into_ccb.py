@@ -38,12 +38,22 @@ def main(argv):
     sk_indiv_id2groups = gather_semi_sep_by_indiv_id(table, {'Mailing Lists': ['Home Touch', 'Rummage Sale'],
         'Activities': ['Veteran', 'Celebration Singers', 'Wesleyan Choir', 'Praise Team']})
 
-    print sk_indiv_id2groups
+    trace('RETRIEVING GROUPS XML FROM CCB...', args.trace, banner=True)
+    tmp_filename = http_get2tmp_file('https://ingomar.ccbchurch.com/api.php?srv=group_profiles',
+        settings.ccbapi.username, settings.ccbapi.password)
+    xml_tree = ET.parse(tmp_filename)
+    xml_root = xml_tree.getroot()
 
-    # TODO - Query CCB's Admin Group IDs for Group list:
-    #   ['Home Touch', 'Rummage Sale', 'Veteran', 'Celebration Singers', 'Wesleyan Choir', 'Praise Team']
-    # Confirm Admin Group ID for each exists...
-    # Then given those Group IDs, call CCB API to associate IDs with those Groups in CCB
+    group_id_map_dict = xml2group_id_dict(xml_root)
+    os.remove(tmp_filename)
+
+    print group_id_map_dict
+
+    # Given mapping dict of SK ID to CCB ID (sk2ccb_id_map_dict)
+    # Given mapping of SK ID to list of SK group names that ID is member of (sk_indiv_id2groups)
+    # Given mapping of SK group name to CCB group ID (group_id_map_dict)
+    #
+    # Now do the work and add individuals to groups in CCB
 
 
 def gather_semi_sep_by_indiv_id(table, dict_semi_column_fields):
@@ -76,6 +86,22 @@ def xml2id_dict(xml_root):
         if sk_indiv_id:
             sk2ccb_id_map_dict[sk_indiv_id] = ccb_indiv_id
     return sk2ccb_id_map_dict
+
+
+def xml2group_id_dict(xml_root):
+    group_id_map_dict = {}
+    ccb_group_name_map = {'Rummage Sale Mailing': 'Rummage Sale', 'Home Touch Mailing': 'Home Touch',
+        'Veterans': 'Veteran', 'Wesleyan Choir': 'Wesleyan Choir', 'Celebration Singers': 'Celebration Singers',
+        'Praise Team': 'Praise Team'}
+    for group in xml_root.findall('./response/groups/group'):
+        group_id = group.attrib['id']
+        group_name = group.find('name').text
+        if group_name in ccb_group_name_map:
+            # assert group.find('interaction_type').text == 'Administrative', "Found group named '" + group_name + \
+            #     "' in CCB, however it is NOT type 'Administrative', so aborting...."
+            from_name = ccb_group_name_map[group_name]
+            group_id_map_dict[from_name] = group_id
+    return group_id_map_dict
 
 
 def node_text(node, tag):
