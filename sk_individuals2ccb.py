@@ -32,6 +32,8 @@ def main(argv):
         "Mailing Lists') dumped from Servant Keeper")
     parser.add_argument("--output-filename", required=True, help="Output CSV filename which will be loaded with "
         "individuals data in CCB import format ")
+    parser.add_argument("--column-comments-filename", required=True, help="Output TEXT filename which will be loaded "
+        "with per-column descriptive text summarizing how that column was transformed")
     parser.add_argument('--trace', action='store_true', help="If specified, prints to stdout as new columns are "
         "added")
     g.args = parser.parse_args()
@@ -85,31 +87,21 @@ def main(argv):
 
     trace('OUTPUT TO CSV COMPLETE.', banner=True)
 
-    trace('WRITING HEADER COMMENTS...', banner=True)
+    trace('WRITING HEADER COMMENTS TO SEPARATE FILE...', banner=True)
 
-    table = petl.fromcsv(g.args.output_filename)
-
-    insert_header_comments_row(table, g.args.output_filename)
+    write_column_comments_to_file(g.args.column_comments_filename)
 
     trace('DONE!', banner=True)
 
 
-def insert_header_comments_row(table, filename):
-    global g
-    table_header = petl.header(table)
-    prepended_header = [g.header_comments[x] if x in g.header_comments else '' for x in table_header]
-    with tempfile.NamedTemporaryFile(delete=False) as temp:
-        tmp_filename = temp.name
-        temp.close()
-    with open(tmp_filename, 'wb') as csvfile_w:
-        csv_writer = csv.writer(csvfile_w)
-        csv_writer.writerow(prepended_header)
-        with open(filename, 'rb') as csvfile_r:
-            csv_reader = csv.reader(csvfile_r)
-            for row in csv_reader:
-                csv_writer.writerow(row)
-    os.rename(filename, filename+'.bak')
-    os.rename(tmp_filename, filename)
+def write_column_comments_to_file(filename):
+    sep = ''
+    column_names = [x[0] for x in get_field_mappings()]
+    with open(filename, 'wb') as column_comments_file:
+        for column_name in column_names:
+            column_comments_file.write(sep + "*** OUTPUT CCB COLUMN: '" + column_name + "'\n\n" + \
+                                       g.header_comments[column_name].strip())
+            sep = '\n\n\n'
 
 
 def trace(msg_str, banner=False):
@@ -510,7 +502,8 @@ def add_invalid_sk_field_contents_to_notes(row, value, sk_col_name):
 def append_indexed_dict_string(index, indexed_dict, append_str):
     if not index in indexed_dict:
         indexed_dict[index] = append_str
-    indexed_dict[index] += '\n\n' + append_str
+    else:
+        indexed_dict[index] += '\n\n' + append_str
 
 
 #######################################################################################################################
@@ -1185,6 +1178,7 @@ def get_field_mappings():
         ['church transferred to', 'Church Transferred To', None, 'custom-text'],
         ['pastor when joined', 'Pastor when joined', None, 'custom-text'],
         ['pastor when leaving', 'Pastor when leaving', None, 'custom-text'],
+        ['SK Indiv ID', 'Individual ID', None, 'custom-text'],
 
         # Putting these fields towards the end so that dependent 'birthday' and 'confirmed' fields can be stuffed
         # before
