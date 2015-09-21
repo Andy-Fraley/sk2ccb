@@ -80,7 +80,7 @@ def valuecounts(table, col_name):
     unreported_count = 0
     column = petl.values(table, col_name)
     nrows = petl.nrows(table)
-    non_blanks = petl.select(table, '{' + col_name + "} != ''")
+    non_blanks = petl.select(table, '{' + quote_single_quote(col_name) + "} != ''")
     num_blanks = nrows - petl.nrows(non_blanks)
     counts_table = petl.valuecounts(non_blanks, col_name)
     for row in petl.records(counts_table):
@@ -92,6 +92,10 @@ def valuecounts(table, col_name):
     return_dict['<other>'] = unreported_count
     return_dict['<blank>'] = num_blanks
     return return_dict
+
+
+def quote_single_quote(string):
+    return re.sub(r"'", r"\'", string)
 
 
 def dict_dump(stats_dict):
