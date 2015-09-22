@@ -1083,7 +1083,7 @@ def get_field_mappings():
         ['suffix', 'Suffix', convert_suffix],
         ['legal name', 'First Name'],
         ['inactive/remove', None, convert_inactive_remove],
-        ['campus', None, 'Ingomar Church'],
+        ['Campus'],
         ['email', 'Individual e-Mail'],
         ['mailing street', 'Address'],
         ['mailing street line 2', 'Address Line 2'],
