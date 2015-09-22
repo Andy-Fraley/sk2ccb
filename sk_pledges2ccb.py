@@ -21,10 +21,13 @@ def main(argv):
 
     table = petl.fromcsv(args.pledges_filename)
 
-    table = petl.rename(table, 'Frequency', 'SK Frequency')
+    table = petl.rename(table, {
+        'Frequency': 'SK Frequency',
+        'Individual ID': 'SK Individual ID'
+        })
 
-    table = petl.addfield(table, 'individual_id', lambda rec: rec['Individual ID'])
-    table = petl.addfield(table, 'campus', 'Ingomar Church')
+    table = petl.addfield(table, 'Individual ID', lambda rec: rec['SK Individual ID'])
+    table = petl.addfield(table, 'Campus', '')
     table = petl.addfield(table, 'Category Pledged To', lambda rec: rec['Account'])
     table = petl.addfield(table, 'Amount Pledged', convert_amount)
     table = petl.addfield(table, 'Total Amount Pledged', lambda rec: rec['Pledged'])
@@ -36,8 +39,8 @@ def main(argv):
         'Weekly':'Weeks'}[rec['Frequency']])
     table = petl.addfield(table, 'Start Date', lambda rec: {'Operating Income':'2013-01-01',
         'Mortgage Principal':'2013-01-01', 'Operating Income 2015':'2015-01-01'}[rec['Account']])
-    table = petl.addfield(table, 'End Date', lambda rec: {'Operating Income':'2014-01-01',
-        'Mortgage Principal':'2014-01-01', 'Operating Income 2015':'2016-01-01'}[rec['Account']])
+    table = petl.addfield(table, 'End Date', lambda rec: {'Operating Income':'2013-12-31',
+        'Mortgage Principal':'2013-12-31', 'Operating Income 2015':'2015-12-31'}[rec['Account']])
 
     trace('CONVERTING AND THEN EMITTING TO CSV FILE...', args.trace, banner=True)
 
