@@ -585,7 +585,7 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
     #assert new_value == 'Primary Contact' or not is_only_family_member(row), row_info_and_msg(row, "A one-member " \
     #    "family has a member who is not 'Primary Contact'.  This should NEVER occur.  Aborting...")
     if new_value != 'Primary Contact' and is_only_family_member(row):
-        conversion_trace(row, "'" + new_value + "' changed to 'Primary Contact', since only member of family ID '" + \
+        conversion_trace(row, "'" + new_value + "' changed to 'Primary Contact', since only member of Family ID '" + \
             str(row['SK Family ID']) + "'", sk_col_name, ccb_col_name)
         new_value = 'Primary Contact'
     return new_value
@@ -1113,7 +1113,7 @@ def get_field_mappings():
     #   or None if this is not a custom or process queue data field
     field_mappings = [
         # Core (silver sample.xls) columns
-        ['Family id', 'SK Family ID'],
+        ['Family ID', 'SK Family ID'],
         ['Individual ID', 'SK Individual ID'],
         ['Family Position', 'Relationship', convert_family_position],
         ['Prefix', 'Title', convert_prefix],
