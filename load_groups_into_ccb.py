@@ -37,6 +37,7 @@ def main(argv):
     table = petl.fromcsv(args.individuals_filename)
     sk_indiv_id2groups = gather_semi_sep_by_indiv_id(table, {'Mailing Lists': ['Home Touch', 'Rummage Sale'],
         'Activities': ['Veteran', 'Celebration Singers', 'Wesleyan Choir', 'Praise Team']})
+    sk_indiv_id2name = gather_name_by_indiv_id(table)
 
     trace('RETRIEVING GROUPS XML FROM CCB...', args.trace, banner=True)
     tmp_filename = http_get2tmp_file('https://ingomar.ccbchurch.com/api.php?srv=group_profiles',
@@ -47,13 +48,25 @@ def main(argv):
     group_id_map_dict = xml2group_id_dict(xml_root)
     os.remove(tmp_filename)
 
-    print group_id_map_dict
+    # print group_id_map_dict
 
     # Given mapping dict of SK ID to CCB ID (sk2ccb_id_map_dict)
     # Given mapping of SK ID to list of SK group names that ID is member of (sk_indiv_id2groups)
     # Given mapping of SK group name to CCB group ID (group_id_map_dict)
     #
     # Now do the work and add individuals to groups in CCB
+
+    for sk_indiv_id in sk_indiv_id2groups:
+        if sk_indiv_id in sk2ccb_id_map_dict:
+            for group_name in sk_indiv_id2groups[sk_indiv_id]:
+                if not group_name in group_id_map_dict:
+                    print "*** Cannot find CCB group name '" + group_name + "' in CCB account."
+                print "Adding " + sk_indiv_id2name[sk_indiv_id] + " to group '" + group_name + "'."
+        else:
+            groups_trying_to_add = ', '.join(sk_indiv_id2groups[sk_indiv_id])
+            print "*** Cannot find CCB individual ID for sk_indiv_id '" + \
+                str(sk_indiv_id) + "' (" + sk_indiv_id2name[sk_indiv_id] + ") in CCB account (via custom " + \
+                "property 'SK Indiv ID'). Therefore, cannot add this person to " + groups_trying_to_add + "."
 
 
 def gather_semi_sep_by_indiv_id(table, dict_semi_column_fields):
@@ -73,6 +86,13 @@ def gather_semi_sep_by_indiv_id(table, dict_semi_column_fields):
                             dict_id2groups[sk_indiv_id] = []
                         dict_id2groups[sk_indiv_id].append(group_name_str)
     return dict_id2groups
+
+
+def gather_name_by_indiv_id(table):
+    sk_indiv_id2name = {}
+    for row in petl.records(table):
+        sk_indiv_id2name[row['Individual ID']] = row['Preferred Name'] + ' ' + row['Last Name']
+    return sk_indiv_id2name
 
 
 def xml2id_dict(xml_root):
