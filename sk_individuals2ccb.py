@@ -55,7 +55,28 @@ def main(argv):
     gen_notes_column_indices = [x for x in range(len(header_row)) if header_row[x] == 'General Notes']
     table = petl.rename(table, {
         gen_notes_column_indices[0]: 'Family Notes',
-        gen_notes_column_indices[1]: 'Individual Notes'})
+        gen_notes_column_indices[1]: 'Individual Notes',
+        'Family ID': 'SK Family ID',
+        'Individual ID': 'SK Individual ID',
+        'First Name': 'SK First Name',
+        'Middle Name': 'SK Middle Name',
+        'Last Name': 'SK Last Name',
+        'Suffix': 'SK Suffix',
+        'City': 'SK City',
+        'State': 'SK State',
+        'Country': 'SK Country',
+        'Home Phone': 'SK Home Phone',
+        'Work Phone': 'SK Work Phone',
+        'Cell Phone': 'SK Cell Phone',
+        'Gender': 'SK Gender',
+        'Marital Status': 'SK Marital Status',
+        'Baptized': 'SK Baptized',
+        'Confirmed Date': 'SK Confirmed Date',
+        'Confirmed': 'SK Confirmed',
+        'Photo Release': 'SK Photo Release',
+        'Church Transferred From': 'SK Church Transferred From',
+        'Church Transferred To': 'SK Church Transferred To'
+    })
 
     # Do the xref mappings specified in 'XRef-Member Status' tab of mapping spreadsheet
     g.xref_member_fields = get_xref_member_fields()
@@ -70,7 +91,7 @@ def main(argv):
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Mailing Lists')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Family Mailing Lists', primary_contact_only=True)
 
-    g.dict_family_id_counts = petl.valuecounter(table, 'Family ID')
+    g.dict_family_id_counts = petl.valuecounter(table, 'SK Family ID')
 
     # print hitmiss_counters
     # for sk_field in hitmiss_counters:
@@ -129,7 +150,7 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name, primary_
 
     assert field_name in g.xref_w2s_skills_sgifts, '*** Unknown Servant Keeper field: ' + field_name + '. Aborting...'
     non_blank_rows = petl.selectisnot(table, field_name, u'')
-    for indiv_id2semi_sep in petl.values(non_blank_rows, 'Individual ID', field_name):
+    for indiv_id2semi_sep in petl.values(non_blank_rows, 'SK Individual ID', field_name):
         individual_id = indiv_id2semi_sep[0]
         list_skills_gifts = [x.strip() for x in indiv_id2semi_sep[1].split(';')]
         for skill_gift in list_skills_gifts:
@@ -138,9 +159,9 @@ def gather_semicolon_sep_field(semicolon_sep_fields, table, field_name, primary_
                 ccb_flag_to_set = g.xref_w2s_skills_sgifts[field_name][skill_gift][1]
                 if not individual_id in g.semicolon_sep_fields:
                     semicolon_sep_fields[individual_id] = {
-                        'spiritual gifts': [set(), set()],
-                        'passions': [set(), set()],
-                        'abilities': [set(), set()]
+                        'Spiritual Gifts': [set(), set()],
+                        'Passions': [set(), set()],
+                        'Abilities': [set(), set()]
                     }
                 add_at_offset = 0
                 if primary_contact_only:
@@ -160,73 +181,73 @@ def get_xref_w2s_skills_sgifts():
     xref_w2s_skills_sgifts_mappings = {
         'Willing to Serve':
         {
-            'Acts of God Drama Ministry': ('passions', 'Activity: Drama'),
-            'Bake or Prepare Food': ('abilities', 'Skill: Cooking/Baking'),
-            'Choir': ('abilities', 'Arts: Vocalist'),
-            'Faith Place': ('passions', 'People: Children'),
-            'High-School Small-Group Facilitator': ('passions', 'People: Young Adults'),
-            'High-School Youth Group Ldr/Chaperone': ('passions', 'People: Young Adults'),
-            'Kids Zone': ('passions', 'People: Children'),
-            'Liturgical Dance Ministry': ('abilities', 'Arts: Dance'),
-            'Middle-School Small-Group Facilitator': ('passions', 'People: Children'),
-            'Middle-School Youth Group Ldr/Chaperone': ('passions', 'People: Children'),
-            'Nursery Helper': ('passions', 'People: Infants/Toddlers'),
-            'Outreach - International - Mission trip': ('passions', 'Activity: Global Missions'),
-            'Outreach - Local - for adults': ('passions', 'Activity: Local Outreach'),
-            'Outreach - Local - for familiies/children': ('passions', 'Activity: Local Outreach'),
-            'Outreach - Local - Mission trip': ('passions', 'Activity: Local Outreach'),
-            'Outreach - U.S. - Mission trip': ('passions', 'Activity: Regional Outreach'),
-            'Vacation Bible School': ('passions', 'People: Children'),
-            'Visit home-bound individuals': ('passions', 'People: Seniors')
+            'Acts of God Drama Ministry': ('Passions', 'Activity: Drama'),
+            'Bake or Prepare Food': ('Abilities', 'Skill: Cooking/Baking'),
+            'Choir': ('Abilities', 'Arts: Vocalist'),
+            'Faith Place': ('Passions', 'People: Children'),
+            'High-School Small-Group Facilitator': ('Passions', 'People: Young Adults'),
+            'High-School Youth Group Ldr/Chaperone': ('Passions', 'People: Young Adults'),
+            'Kids Zone': ('Passions', 'People: Children'),
+            'Liturgical Dance Ministry': ('Abilities', 'Arts: Dance'),
+            'Middle-School Small-Group Facilitator': ('Passions', 'People: Children'),
+            'Middle-School Youth Group Ldr/Chaperone': ('Passions', 'People: Children'),
+            'Nursery Helper': ('Passions', 'People: Infants/Toddlers'),
+            'Outreach - International - Mission trip': ('Passions', 'Activity: Global Missions'),
+            'Outreach - Local - for adults': ('Passions', 'Activity: Local Outreach'),
+            'Outreach - Local - for familiies/children': ('Passions', 'Activity: Local Outreach'),
+            'Outreach - Local - Mission trip': ('Passions', 'Activity: Local Outreach'),
+            'Outreach - U.S. - Mission trip': ('Passions', 'Activity: Regional Outreach'),
+            'Vacation Bible School': ('Passions', 'People: Children'),
+            'Visit home-bound individuals': ('Passions', 'People: Seniors')
         },
         'Skills':
         {
-            'Compassion / Listening Skills': ('abilities', 'Skill: Counseling'),
-            'Cooking / Baking': ('abilities', 'Skill: Cooking/Baking'),
-            'Dancer / Choreographer': ('abilities', 'Arts: Dance'),
-            'Drama': ('passions', 'Activity: Drama'),
-            'Encouragement': ('spiritual gifts', 'Encouragement'),
-            'Gardening / Yard Work': ('abilities', 'Skill: Gardening'),
-            'Giving': ('spiritual gifts', 'Giving'),
-            'Information Technology': ('abilities', 'Skill: Tech/Computers'),
-            'Mailing Preparation': ('abilities', 'Skill: Office Admin'),
-            'Organizational Skills': ('abilities', 'Skill: Office Admin'),
-            'Photography / Videography': ('abilities', 'Arts: Video/Photography'),
-            'Prayer': ('spiritual gifts', 'Intercession'),
-            'Sew / Knit / Crochet': ('abilities', 'Arts: Sew/Knit/Crochet'),
-            'Singer': ('abilities', 'Arts: Vocalist'),
-            'Teacher': ('abilities', 'Skill: Education'),
-            'Writer': ('abilities', 'Arts: Writer')
+            'Compassion / Listening Skills': ('Abilities', 'Skill: Counseling'),
+            'Cooking / Baking': ('Abilities', 'Skill: Cooking/Baking'),
+            'Dancer / Choreographer': ('Abilities', 'Arts: Dance'),
+            'Drama': ('Passions', 'Activity: Drama'),
+            'Encouragement': ('Spiritual Gifts', 'Encouragement'),
+            'Gardening / Yard Work': ('Abilities', 'Skill: Gardening'),
+            'Giving': ('Spiritual Gifts', 'Giving'),
+            'Information Technology': ('Abilities', 'Skill: Tech/Computers'),
+            'Mailing Preparation': ('Abilities', 'Skill: Office Admin'),
+            'Organizational Skills': ('Abilities', 'Skill: Office Admin'),
+            'Photography / Videography': ('Abilities', 'Arts: Video/Photography'),
+            'Prayer': ('Spiritual Gifts', 'Intercession'),
+            'Sew / Knit / Crochet': ('Abilities', 'Arts: Sew/Knit/Crochet'),
+            'Singer': ('Abilities', 'Arts: Vocalist'),
+            'Teacher': ('Abilities', 'Skill: Education'),
+            'Writer': ('Abilities', 'Arts: Writer')
         },
         'Spiritual Gifts':
         {
-            'Administration': ('spiritual gifts', 'Administration'),
-            'Apostleship': ('spiritual gifts', 'Apostleship'),
-            'Craftsmanship': ('spiritual gifts', 'Craftsmanship'),
-            'Discernment': ('spiritual gifts', 'Discernment'),
-            'Encouragement': ('spiritual gifts', 'Encouragement'),
-            'Evangelism': ('spiritual gifts', 'Evangelism'),
-            'Faith': ('spiritual gifts', 'Faith'),
-            'Giving': ('spiritual gifts', 'Giving'),
-            'Helps': ('spiritual gifts', 'Helps'),
-            'Hospitality': ('spiritual gifts', 'Hospitality'),
-            'Intercession': ('spiritual gifts', 'Intercession'),
-            'Word of Knowledge': ('spiritual gifts', 'Knowledge'),
-            'Leadership': ('spiritual gifts', 'Leadership'),
-            'Mercy': ('spiritual gifts', 'Mercy'),
-            'Prophecy': ('spiritual gifts', 'Prophecy'),
-            'Teaching': ('spiritual gifts', 'Teaching'),
-            'Word of Wisdom': ('spiritual gifts', 'Wisdom')
+            'Administration': ('Spiritual Gifts', 'Administration'),
+            'Apostleship': ('Spiritual Gifts', 'Apostleship'),
+            'Craftsmanship': ('Spiritual Gifts', 'Craftsmanship'),
+            'Discernment': ('Spiritual Gifts', 'Discernment'),
+            'Encouragement': ('Spiritual Gifts', 'Encouragement'),
+            'Evangelism': ('Spiritual Gifts', 'Evangelism'),
+            'Faith': ('Spiritual Gifts', 'Faith'),
+            'Giving': ('Spiritual Gifts', 'Giving'),
+            'Helps': ('Spiritual Gifts', 'Helps'),
+            'Hospitality': ('Spiritual Gifts', 'Hospitality'),
+            'Intercession': ('Spiritual Gifts', 'Intercession'),
+            'Word of Knowledge': ('Spiritual Gifts', 'Knowledge'),
+            'Leadership': ('Spiritual Gifts', 'Leadership'),
+            'Mercy': ('Spiritual Gifts', 'Mercy'),
+            'Prophecy': ('Spiritual Gifts', 'Prophecy'),
+            'Teaching': ('Spiritual Gifts', 'Teaching'),
+            'Word of Wisdom': ('Spiritual Gifts', 'Wisdom')
         },
         'Mailing Lists':
         {
-            'Golf Outing': ('abilities', 'Sports: Golf'),
-            '2015 Golf Outing': ('abilities', 'Sports: Golf')
+            'Golf Outing': ('Abilities', 'Sports: Golf'),
+            '2015 Golf Outing': ('Abilities', 'Sports: Golf')
         },
         'Family Mailing Lists':
         {
-            'Golf Outing': ('abilities', 'Sports: Golf'),
-            '2015 Golf Outing': ('abilities', 'Sports: Golf')
+            'Golf Outing': ('Abilities', 'Sports: Golf'),
+            '2015 Golf Outing': ('Abilities', 'Sports: Golf')
         }
     }
     return xref_w2s_skills_sgifts_mappings
@@ -261,124 +282,124 @@ def record_hitmiss(sk_field, item, count):
 def get_xref_member_fields():
     xref_member_fields = {
         'Active Member': {
-            'membership type': 'Member - Active',
-            'inactive/remove': 'No',
-            'membership date': get_date_joined,
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': 'Member - Active',
+            'Inactive/Remove': 'No',
+            'Membership Date': get_date_joined,
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'Inactive Member': {
-            'membership type': 'Member - Inactive',
-            'inactive/remove': 'No',
-            'membership date': get_date_joined,
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': 'Member - Inactive',
+            'Inactive/Remove': 'No',
+            'Membership Date': get_date_joined,
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'Regular Attendee': {
-            'membership type': 'Regular Attendee',
-            'inactive/remove': 'No',
-            'membership date': '',
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': 'Regular Attendee',
+            'Inactive/Remove': 'No',
+            'Membership Date': '',
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'Visitor': {
-            'membership type': 'Guest',
-            'inactive/remove': 'No',
-            'membership date': '',
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': 'Guest',
+            'Inactive/Remove': 'No',
+            'Membership Date': '',
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'Non-Member': {
-            'membership type': get_sourced_donor_or_biz,
-            'inactive/remove': 'No',
-            'membership date': '',
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': get_sourced_donor_or_biz,
+            'Inactive/Remove': 'No',
+            'Membership Date': '',
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'Pastor': {
-            'membership type': 'Pastor',
-            'inactive/remove': 'No',
-            'membership date': '',
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': 'Pastor',
+            'Inactive/Remove': 'No',
+            'Membership Date': '',
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'Deceased - Member': {
-            'membership type': 'Member - Inactive',
-            'inactive/remove': 'Yes',
-            'membership date': get_date_joined,
-            'reason left': 'Deceased',
-            'membership stop date': '',
-            'deceased': get_date_of_death
+            'Membership Type': 'Member - Inactive',
+            'Inactive/Remove': 'Yes',
+            'Membership Date': get_date_joined,
+            'Reason Left': 'Deceased',
+            'Membership Start Date': '',
+            'Deceased': get_date_of_death
         },
         'Deceased - Non-Member': {
-            'membership type': 'Friend',
-            'inactive/remove': 'Yes',
-            'membership date': '',
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': get_date_of_death
+            'Membership Type': 'Friend',
+            'Inactive/Remove': 'Yes',
+            'Membership Date': '',
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': get_date_of_death
         },
         'None': {
-            'membership type': '',
-            'inactive/remove': 'Yes',
-            'membership date': '',
-            'reason left': '',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': '',
+            'Inactive/Remove': 'Yes',
+            'Membership Date': '',
+            'Reason Left': '',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'No Longer Attend': {
-            'membership type': 'Friend',
-            'inactive/remove': 'No',
-            'membership date': '',
-            'reason left': 'No Longer Attend',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': 'Friend',
+            'Inactive/Remove': 'No',
+            'Membership Date': '',
+            'Reason Left': 'No Longer Attend',
+            'Membership Start Date': '',
+            'Deceased': ''
         },
         'Transferred out to other UMC': {
-            'membership type': 'Friend',
-            'inactive/remove': 'Yes',
-            'membership date': get_date_joined,
-            'reason left': 'Transferred out to other UMC',
-            'membership stop date': get_trf_out_date,
-            'deceased': ''
+            'Membership Type': 'Friend',
+            'Inactive/Remove': 'Yes',
+            'Membership Date': get_date_joined,
+            'Reason Left': 'Transferred Out to Other UMC',
+            'Membership Start Date': get_trf_out_date,
+            'Deceased': ''
         },
         'Transferred out to Non UMC': {
-            'membership type': 'Friend',
-            'inactive/remove': 'Yes',
-            'membership date': get_date_joined,
-            'reason left': 'Transferred out to Non UMC',
-            'membership stop date': get_trf_out_date,
-            'deceased': ''
+            'Membership Type': 'Friend',
+            'Inactive/Remove': 'Yes',
+            'Membership Date': get_date_joined,
+            'Reason Left': 'Transferred Out to Non UMC',
+            'Membership Start Date': get_trf_out_date,
+            'Deceased': ''
         },
         'Withdrawal': {
-            'membership type': 'Friend',
-            'inactive/remove': 'No',
-            'membership date': get_date_joined,
-            'reason left': 'Withdrawal',
-            'membership stop date': get_trf_out_date,
-            'deceased': ''
+            'Membership Type': 'Friend',
+            'Inactive/Remove': 'No',
+            'Membership Date': get_date_joined,
+            'Reason Left': 'Withdrawal',
+            'Membership Start Date': get_trf_out_date,
+            'Deceased': ''
         },
         'Charge Conf. Removal': {
-            'membership type': 'Friend',
-            'inactive/remove': 'Yes',
-            'membership date': get_date_joined,
-            'reason left': 'Charge Conf. Removal',
-            'membership stop date': get_trf_out_date,
-            'deceased': ''
+            'Membership Type': 'Friend',
+            'Inactive/Remove': 'Yes',
+            'Membership Date': get_date_joined,
+            'Reason Left': 'Charge Conference Removal',
+            'Membership Start Date': get_trf_out_date,
+            'Deceased': ''
         },
         'Archives (Red Book)': {
-            'membership type': '',
-            'inactive/remove': 'Yes',
-            'membership date': '',
-            'reason left': 'Archives (Red Book)',
-            'membership stop date': '',
-            'deceased': ''
+            'Membership Type': '',
+            'Inactive/Remove': 'Yes',
+            'Membership Date': '',
+            'Reason Left': 'Archives (Red Book)',
+            'Membership Start Date': '',
+            'Deceased': ''
         }
     }
     return xref_member_fields
@@ -415,13 +436,13 @@ def get_date_of_death(row):
 
 def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
     global g
-    indiv_id = row['Individual ID']
+    indiv_id = row['SK Individual ID']
     if indiv_id not in g.conversion_traces:
         g.conversion_traces[indiv_id] = []
-    member_str = "Member '" + row['Last Name'] + ", " + row['First Name']
-    if row['Middle Name'] != '':
-        member_str += " " + row['Middle Name']
-    member_str += "' (" + row['Individual ID'] + "). "
+    member_str = "Member '" + row['SK Last Name'] + ", " + row['SK First Name']
+    if row['SK Middle Name'] != '':
+        member_str += " " + row['SK Middle Name']
+    member_str += "' (" + row['SK Individual ID'] + "). "
     if sk_col_name is not None:
         prefix_str = "Mapping from SK column '" + sk_col_name + "' to CCB column '" + \
             ccb_col_name + "'. "
@@ -466,11 +487,11 @@ def xref_w2s_gather(row, gather_str):
     # this method is called
     global g
     return_set = set()
-    indiv_id = row['Individual ID']
+    indiv_id = row['SK Individual ID']
     if indiv_id in g.semicolon_sep_fields:
         for elem in g.semicolon_sep_fields[indiv_id][gather_str][0]:
             return_set.add(elem)
-        if row['family position'] == 'Primary Contact':
+        if row['Family Position'] == 'Primary Contact':
             for elem in g.semicolon_sep_fields[indiv_id][gather_str][1]:
                 return_set.add(elem)
         return ';'.join(return_set)
@@ -480,12 +501,12 @@ def xref_w2s_gather(row, gather_str):
 
 def is_only_family_member(row):
     global g
-    assert row['Family ID'] != '', row_info_and_msg(row, "Row has blank 'Family ID'.")
-    return g.dict_family_id_counts[row['Family ID']] == 1
+    assert row['SK Family ID'] != '', row_info_and_msg(row, "Row has blank 'SK Family ID'.")
+    return g.dict_family_id_counts[row['SK Family ID']] == 1
 
 
 def row_info_and_msg(row, msg_str):
-    row_info_str = row['First Name'] + ' ' + row['Last Name'] + ' (' + row['Individual ID'] + ')'
+    row_info_str = row['SK First Name'] + ' ' + row['SK Last Name'] + ' (' + row['SK Individual ID'] + ')'
     return row_info_str + '. ' + msg_str
 
 
@@ -495,7 +516,7 @@ def date_format(date):
 
 def add_invalid_sk_field_contents_to_notes(row, value, sk_col_name):
     global g
-    append_indexed_dict_string(row['Individual ID'], g.blanked_sk_field_contents_notes, "Servant Keeper field '" + \
+    append_indexed_dict_string(row['SK Individual ID'], g.blanked_sk_field_contents_notes, "Servant Keeper field '" + \
         sk_col_name + "' had value '" + value + "' which could not be loaded into CCB.")
 
 
@@ -547,7 +568,7 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
         'Son' -> 'Child',
         'Daughter' -> 'Child',
         'Child' -> 'Child',
-        'Organization Record' -> 'Primary Contact' (and 'membership type' is set to 'Business')
+        'Organization Record' -> 'Primary Contact' (and 'Membership Type' is set to 'Business')
         <anything_else> -> 'Other'."""
 
     convert_dict = {
@@ -565,7 +586,7 @@ def convert_family_position(value, row, sk_col_name, ccb_col_name):
     #    "family has a member who is not 'Primary Contact'.  This should NEVER occur.  Aborting...")
     if new_value != 'Primary Contact' and is_only_family_member(row):
         conversion_trace(row, "'" + new_value + "' changed to 'Primary Contact', since only member of family ID '" + \
-            str(row['Family ID']) + "'", sk_col_name, ccb_col_name)
+            str(row['SK Family ID']) + "'", sk_col_name, ccb_col_name)
         new_value = 'Primary Contact'
     return new_value
 
@@ -612,6 +633,25 @@ def convert_suffix(value, row, sk_col_name, ccb_col_name):
     return conversion_using_dict_map(row, value, sk_col_name, ccb_col_name, convert_dict, '', trace_other=True)
 
 
+def convert_photo_release(value, row, sk_col_name, ccb_col_name):
+    """Change to Title Case for one value that is not Title Case.  'Granted, but name release denied' ->
+    'Granted, But Name Release Denied')."""
+
+    if value == 'Granted, but name release denied':
+        return 'Granted, But Name Release Denied'
+    else:
+        return value
+
+
+def convert_ethnicity(value, row, sk_col_name, ccb_col_name):
+    """Change to Title Case for one value that is not Title Case.  'Multi racial' -> 'Multi Racial'."""
+
+    if value == 'Multi racial':
+        return 'Multi Racial'
+    else:
+        return value
+
+
 def convert_limited_access_user(value, row, sk_col_name, ccb_col_name):
     """By setting to 'No', we intend all users to be 'Basic User'."""
 
@@ -622,11 +662,11 @@ def convert_listed(value, row, sk_col_name, ccb_col_name):
     """Children ('family position' == 'Child') with blank 'confirmed date' and blank 'birthday' will be made
     'Listed'='No'.  Children with valid 'confirmed date' or valid 'birthday' will be made 'Listed'='Yes'."""
 
-    assert not (row['confirmed date'] != '' and row['confirmed'] == 'No'), row_info_and_msg(row,
-        "Row has valid 'confirmed date' but indicates 'confirmed' == 'No'.")
+    assert not (row['Confirmed Date'] != '' and row['Confirmed'] == 'No'), row_info_and_msg(row,
+        "Row has valid 'Confirmed Date' but indicates 'Confirmed' == 'No'.")
 
-    if (row['family position'] == 'Child' or row['family position'] == 'Other') and row['confirmed date'] == '' \
-       and row['birthday'] == '':
+    if (row['Family Position'] == 'Child' or row['Family Position'] == 'Other') and row['Confirmed Date'] == '' \
+       and row['Birthday'] == '':
         new_value = 'No'
     else:
         new_value = 'Yes'
@@ -637,12 +677,12 @@ def convert_contact_phone(value, row, sk_col_name, ccb_col_name):
     """This field is loaded with 'home phone' value if it's a valid phone number, else 'cell phone' if that's valid,
     and if neither 'home phone' nor 'cell phone' are valid, then this field is blank"""
 
-    home_phone_valid = is_phone_valid(row['Home Phone'])
-    cell_phone_valid = is_phone_valid(row['Cell Phone'])
+    home_phone_valid = is_phone_valid(row['SK Home Phone'])
+    cell_phone_valid = is_phone_valid(row['SK Cell Phone'])
     if home_phone_valid:
-        return row['Home Phone']
+        return row['SK Home Phone']
     elif cell_phone_valid:
-        return row['Cell Phone']
+        return row['SK Cell Phone']
     else:
         return ''
 
@@ -653,7 +693,7 @@ def convert_membership_date(value, row, sk_col_name, ccb_col_name):
     'Transferred out to Non UMC', 'Withdrawal', 'Charge Conf. Removal'), and Servant Keeper's 'Date Joined' field
     is a valid date, then this date is set Servant Keeper's 'Date Joined', else it is set to blank ('')"""
 
-    new_value = xref_member_field_value(row, 'membership date')
+    new_value = xref_member_field_value(row, 'Membership Date')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
 
@@ -663,7 +703,7 @@ def convert_membership_stop_date(value, row, sk_col_name, ccb_col_name):
     'Trf out/Withdrawal Date' field is a valid date, then this date is set to Servant Keeper's
     'Trf out/Withdrawal Date', else it is set to blank ('')"""
 
-    new_value = xref_member_field_value(row, 'membership stop date')
+    new_value = xref_member_field_value(row, 'Membership Start Date')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
 
@@ -689,7 +729,7 @@ def convert_membership_type(value, row, sk_col_name, ccb_col_name):
     global g
     assert row['Member Status'] in g.xref_member_fields, "In convert_membership_type(), 'Member Status' of '" + \
         row['Member Status'] + "' is not valid key.  Aborting..."
-    new_value = g.xref_member_fields[row['Member Status']]['membership type']
+    new_value = g.xref_member_fields[row['Member Status']]['Membership Type']
     if callable(new_value):
         new_value = new_value(row)
     return new_value
@@ -728,7 +768,7 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
     global g
     assert row['Member Status'] in g.xref_member_fields, "In convert_inactive_remove(), 'Member Status' of '" + \
         row['Member Status'] + "' is not valid key.  Aborting..."
-    new_value = g.xref_member_fields[row['Member Status']]['inactive/remove']
+    new_value = g.xref_member_fields[row['Member Status']]['Inactive/Remove']
     return new_value
 
 
@@ -748,7 +788,7 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
 
     # Note - For look-up below to work, the 'family position' field MUST be convert()'d prior to this
     # 'notes' field
-    if row['family position'] == 'Primary Contact' and row['Family Notes']:
+    if row['Family Position'] == 'Primary Contact' and row['Family Notes']:
         family_notes_str = '\n\nSERVANT KEEPER - FAMILY NOTES:\n\n' + row['Family Notes']
 
     if row['Individual Notes']:
@@ -760,9 +800,9 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
 
     # Note - For look-up below to work, this convert() must run after ALL convert_date() and convert_phone()
     # conversions
-    if row['Individual ID'] in g.blanked_sk_field_contents_notes:
+    if row['SK Individual ID'] in g.blanked_sk_field_contents_notes:
         conversion_notes_str = '\n\nSERVANT KEEPER -> CCB CONVERSION ISSUES:\n\n' + \
-            g.blanked_sk_field_contents_notes[row['Individual ID']]
+            g.blanked_sk_field_contents_notes[row['SK Individual ID']]
 
     if family_notes_str or individual_notes_str or family_relationship_notes_str or conversion_notes_str:
         output_str = 'THESE NOTES ARE FROM SERVANT KEEPER CONVERSION ({})'.format(
@@ -816,18 +856,18 @@ def convert_how_they_joined(value, row, sk_col_name, ccb_col_name):
         'Confirmation' -> 'Confirmation',
         'Membership Restored' -> 'Membership Restored',
         'Profession of Faith' -> 'Profession of Faith',
-        'Transferred  from other UMC' -> 'Transferred from other UMC',
+        'Transferred  from other UMC' -> 'Transferred from Other UMC',
         'Transferred from Non UMC' -> 'Transferred from Non UMC',
         '' -> ''.
     Note:  the *only* remapping happening above is removal of extra space from 'Transferred  from other UMC'
-    setting."""
+    setting.  And to upper case 'Other'"""
 
     convert_dict = {
         'Associate': 'Associate',
         'Confirmation': 'Confirmation',
         'Membership Restored': 'Membership Restored',
         'Profession of Faith': 'Profession of Faith',
-        'Transferred  from other UMC': 'Transferred from other UMC',
+        'Transferred  from other UMC': 'Transferred from Other UMC',
         'Transferred from Non UMC': 'Transferred from Non UMC',
         '': ''
     }
@@ -850,7 +890,7 @@ def convert_reason_left_church(value, row, sk_col_name, ccb_col_name):
     global g
     assert row['Member Status'] in g.xref_member_fields, "In convert_reason_left_church(), 'Member Status' of '" + \
         row['Member Status'] + "' is not valid key.  Aborting..."
-    value = g.xref_member_fields[row['Member Status']]['reason left']
+    value = g.xref_member_fields[row['Member Status']]['Reason Left']
     return value
 
 
@@ -859,7 +899,7 @@ def convert_deceased(value, row, sk_col_name, ccb_col_name):
     'Deceased - Member', 'Deceased - Non-Member'), and Servant Keeper's 'Date of Death' field is a valid date,
     then this field is set to Servant Keeper's 'Date of Death' field, else it is set to blank ('')."""
 
-    new_value = xref_member_field_value(row, 'deceased')
+    new_value = xref_member_field_value(row, 'Deceased')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
 
@@ -886,7 +926,7 @@ def convert_spiritual_gifts(value, row, sk_col_name, ccb_col_name):
         SK Spiritual Gifts 'Teaching' -> 'Teaching',
         SK Spiritual Gifts 'Wisdom' -> 'Wisdom'."""
 
-    return xref_w2s_gather(row, 'spiritual gifts')
+    return xref_w2s_gather(row, 'Spiritual Gifts')
 
 
 def convert_passions(value, row, sk_col_name, ccb_col_name):
@@ -908,7 +948,7 @@ def convert_passions(value, row, sk_col_name, ccb_col_name):
         SK Willing to Serve 'Visit home-bound individuals' -> 'People: Seniors',
         SK Skills 'Drama' -> 'Activity: Drama'."""
 
-    return xref_w2s_gather(row, 'passions')
+    return xref_w2s_gather(row, 'Passions')
 
 
 def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
@@ -929,7 +969,7 @@ def convert_abilities_skills(value, row, sk_col_name, ccb_col_name):
         SK Skills 'Teacher' -> 'Skill: Education',
         SK Skills 'Writer' -> 'Arts: Writer'."""
 
-    return xref_w2s_gather(row, 'abilities')
+    return xref_w2s_gather(row, 'Abilities')
 
 
 def convert_burial_information(value, row, sk_col_name, ccb_col_name):
@@ -1049,12 +1089,12 @@ def setup_column_conversions(table):
     # TODO - Remove the reorder when Carol's extract is in right order
     # Put columns in better-to-read ordering to better allow for FREEZE WINDOW in Excel
     l = list(petl.header(table))
-    l.remove('Last Name')
-    l.remove('First Name')
+    l.remove('SK Last Name')
+    l.remove('SK First Name')
     l.remove('Mailing Name')
     l.insert(0, 'Mailing Name')
-    l.insert(0, 'First Name')
-    l.insert(0, 'Last Name')
+    l.insert(0, 'SK First Name')
+    l.insert(0, 'SK Last Name')
     table = petl.cut(table, l)
 
     return table
@@ -1073,112 +1113,107 @@ def get_field_mappings():
     #   or None if this is not a custom or process queue data field
     field_mappings = [
         # Core (silver sample.xls) columns
-        ['family id', 'Family ID'],
-        ['individual id', 'Individual ID'],
-        ['family position', 'Relationship', convert_family_position],
-        ['prefix', 'Title', convert_prefix],
-        ['first name', 'Preferred Name'],
-        ['middle name', 'Middle Name'],
-        ['last name', 'Last Name'],
-        ['suffix', 'Suffix', convert_suffix],
-        ['legal name', 'First Name'],
-        ['inactive/remove', None, convert_inactive_remove],
+        ['Family id', 'SK Family ID'],
+        ['Individual ID', 'SK Individual ID'],
+        ['Family Position', 'Relationship', convert_family_position],
+        ['Prefix', 'Title', convert_prefix],
+        ['First Name', 'Preferred Name'],
+        ['Middle Name', 'SK Middle Name'],
+        ['Last Name', 'SK Last Name'],
+        ['Suffix', 'SK Suffix', convert_suffix],
+        ['Legal Name', 'SK First Name'],
+        ['Inactive/Remove', None, convert_inactive_remove],
         ['Campus'],
-        ['email', 'Individual e-Mail'],
-        ['mailing street', 'Address'],
-        ['mailing street line 2', 'Address Line 2'],
-        ['city', 'City'],
-        ['state', 'State'],
-        ['postal code', 'Zip Code'],
-        ['country', 'Country', convert_country],
-        ['mailing carrier route'],
-        ['home street', 'Address'],
-        ['home street line 2', 'Address Line 2'],
-        ['home_city', 'City'],
-        ['home_state', 'State'],
-        ['home_postal code', 'Zip Code'],
-        ['area_of_town'],
-        ['contact_phone', None, convert_contact_phone],
-        ['home phone', 'Home Phone', convert_phone],
-        ['work phone', 'Work Phone', convert_phone],
-        ['cell phone', 'Cell Phone', convert_phone],
-        ['service provider'],
-        ['fax'],
-        ['pager'],
-        ['emergency phone'],
-        ['emergency contact name'],
-        ['birthday', 'Birth Date', convert_date],
-        ['anniversary', 'Wedding Date', convert_date],
-        ['gender', 'Gender'],
-        ['giving #', 'Env #'],
-        ['marital status', 'Marital Status'],
-        ['membership date', 'Date Joined', convert_membership_date],
-        ['membership stop date', 'Trf out/Withdrawal Date', convert_membership_stop_date],
-        ['membership type', None, convert_membership_type],
-        ['baptized', 'Baptized'],
-        ['school', 'School District'],
-        ['school grade'],
-        ['known allergies'],
-        ['confirmed no allergies'],
-        ['approved to work with children'],
-        ['approved to work with children stop date'],
-        ['commitment date'],
-        ['how they heard', 'How Sourced?', convert_how_they_heard],
-        ['how they joined', 'How Joined', convert_how_they_joined],
-        ['reason left church', None, convert_reason_left_church],
-        ['job title', 'Occupation'],
-        ['work street 1'],
-        ['work street 2'],
-        ['work city'],
-        ['work state'],
-        ['work postal code'],
+        ['Email', 'Individual e-Mail'],
+        ['Mailing Street', 'Address'],
+        ['Mailing Street Line 2', 'Address Line 2'],
+        ['City', 'SK City'],
+        ['State', 'SK State'],
+        ['Postal Code', 'Zip Code'],
+        ['Country', 'SK Country', convert_country],
+        ['Mailing Carrier Route'],
+        ['Home Street', 'Address'],
+        ['Home Street Line 2', 'Address Line 2'],
+        ['Home City', 'SK City'],
+        ['Home State', 'SK State'],
+        ['Home Postal Code', 'Zip Code'],
+        ['Area of Town'],
+        ['Contact Phone', None, convert_contact_phone],
+        ['Home Phone', 'SK Home Phone', convert_phone],
+        ['Work Phone', 'SK Work Phone', convert_phone],
+        ['Cell Phone', 'SK Cell Phone', convert_phone],
+        ['Service Provider'],
+        ['Fax'],
+        ['Pager'],
+        ['Emergency Phone'],
+        ['Emergency Contact Name'],
+        ['Birthday', 'Birth Date', convert_date],
+        ['Anniversary', 'Wedding Date', convert_date],
+        ['Gender', 'SK Gender'],
+        ['Giving #', 'Env #'],
+        ['Marital Status', 'SK Marital Status'],
+        ['Membership Date', 'Date Joined', convert_membership_date],
+        ['Membership Start Date', 'Trf out/Withdrawal Date', convert_membership_stop_date],
+        ['Membership Type', None, convert_membership_type],
+        ['Baptized', 'SK Baptized'],
+        ['School', 'School District'],
+        ['School Grade'],
+        ['Known Allergies'],
+        ['Confirmed No Allergies'],
+        ['Approved to Work with Children'],
+        ['Approved to Work with Children Stop Date'],
+        ['Commitment Date'],
+        ['How They Heard', 'How Sourced?', convert_how_they_heard],
+        ['How They Joined', 'How Joined', convert_how_they_joined],
+        ['Reason Left Church', None, convert_reason_left_church],
+        ['Job Title', 'Occupation'],
+        ['Work Street 1'],
+        ['Work Street 2'],
+        ['Work City'],
+        ['Work State'],
+        ['Work Postal Code'],
         ['Current Story'],
         ['Commitment Story'],
-        ['deceased', 'Date of Death', convert_deceased],
-        ['facebook_username'],
-        ['twitter_username'],
-        ['blog_username'],
-        ['website my'],
-        ['website work'],
-        ['military'],  # Anything from Carol?
-        ['spiritual_maturity'],
-        ['spiritual_gifts', None, convert_spiritual_gifts],
-        ['passions', None, convert_passions],
-        ['abilities/skills', None, convert_abilities_skills],
-        ['church_services_I_attend'],
-        ['personal_style'],
+        ['Deceased', 'Date of Death', convert_deceased],
+        ['Facebook Username'],
+        ['Twitter Username'],
+        ['Blog Username'],
+        ['Website My'],
+        ['Website Work'],
+        ['Military'],  # Anything from Carol?
+        ['Spiritual Maturity'],
+        ['Spiritual Gifts', None, convert_spiritual_gifts],
+        ['Passions', None, convert_passions],
+        ['Abilities/Skills', None, convert_abilities_skills],
+        ['Church Services I Attend'],
+        ['Personal Style'],
 
         # No such thing as 'other' address info in silver_sample file, but they're valid fields
-        ['other street', 'Alt Address'],
-        ['other street line 2', 'Alt Address Line 2'],
-        ['other city', 'Alt City'],
-        ['other country', 'Alt Country', convert_country],
-        ['other state', 'Alt State'],
-        ['other_postal code', 'Alt Zip Code'],
-
-        # Guest followup process queue
-        ['guest_followup 1 month', '1-Month Follow-up', convert_date, 'process_queue'],
-        ['guest_followup 1 week', 'Wk 1 Follow-up', convert_date, 'process_queue'],
-        ['guest_followup 2 weeks', 'Wk 2 Follow-up', convert_date, 'process_queue'],
+        ['Other Street', 'Alt Address'],
+        ['Other Street Line 2', 'Alt Address Line 2'],
+        ['Other City', 'Alt City'],
+        ['Other Country', 'Alt Country', convert_country],
+        ['Other State', 'Alt State'],
+        ['Other Postal Code', 'Alt Zip Code'],
 
         # Burial and Baptism process queue data
         ["PROCESS='Death' QUEUE='Record Burial Information'", None, convert_burial_information, 'process_queue'],
         ["PROCESS='Baptism' QUEUE='Record Baptism Information'", None, convert_baptism_information, 'process_queue'],
 
         # Custom fields
-        ['baptism date', 'Baptized Date', convert_date, 'custom-pulldown'],
-        ['baptized by', 'Baptized by', None, 'custom-pulldown'],
-        ['confirmed date', 'Confirmed Date', convert_date, 'custom-date'],
-        ['confirmed', 'Confirmed', None, 'custom-pulldown'],
-        ['mailbox number', 'Mail Box #', None, 'custom-text'],
-        ['spirit mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'],
-        ['photo release', 'Photo Release', None, 'custom-pulldown'],
-        ['ethnicity', 'Racial/Ethnic identification', None, 'custom-pulldown'],
-        ['church transferred from', 'Church Transferred From', None, 'custom-text'],
-        ['church transferred to', 'Church Transferred To', None, 'custom-text'],
-        ['pastor when joined', 'Pastor when joined', None, 'custom-text'],
-        ['pastor when leaving', 'Pastor when leaving', None, 'custom-text'],
-        ['SK Indiv ID', 'Individual ID', None, 'custom-text'],
+        ['Baptism Date', 'Baptized Date', convert_date, 'custom-pulldown'],
+        ['Baptized By', 'Baptized by', None, 'custom-pulldown'],
+        ['Confirmed Date', 'SK Confirmed Date', convert_date, 'custom-date'],
+        ['Confirmed', 'SK Confirmed', None, 'custom-pulldown'],
+        ['Mailbox Number', 'Mail Box #', None, 'custom-text'],
+        ['Spirit Mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'],
+        ['Photo Release', 'SK Photo Release', convert_photo_release, 'custom-pulldown'],
+        ['Ethnicity', 'Racial/Ethnic identification', convert_ethnicity, 'custom-pulldown'],
+        ['Church Transferred From', 'SK Church Transferred From', None, 'custom-text'],
+        ['Church Transferred To', 'SK Church Transferred To', None, 'custom-text'],
+        ['Pastor When Joined', 'Pastor when joined', None, 'custom-text'],
+        ['Pastor When Leaving', 'Pastor when leaving', None, 'custom-text'],
+        ['SK Indiv ID', 'SK Individual ID', None, 'custom-text'],
 
         # Putting these fields towards the end so that dependent 'birthday' and 'confirmed' fields can be stuffed
         # before
@@ -1187,7 +1222,7 @@ def get_field_mappings():
 
         # Notes field last so it can accumulate notes about all invalid dates/phones in SK, and so it can rely
         # on 'Primary Contact' already having been set
-        ['notes', None, convert_notes]
+        ['Notes', None, convert_notes]
     ]
     return field_mappings
 

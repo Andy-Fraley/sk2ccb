@@ -224,14 +224,14 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
                     attendance_dict2 = {}
                     full_name = attendance_dict['full_name']
                     if full_name in full_name2sk_indiv_id:
-                        attendance_dict2['individual_id'] = full_name2sk_indiv_id[full_name]
-                        attendance_dict2['date'] = month_sundays[week_index]
-                        attendance_dict2['event_id'] = event_id
+                        attendance_dict2['Individual ID'] = full_name2sk_indiv_id[full_name]
+                        attendance_dict2['Date'] = month_sundays[week_index]
+                        attendance_dict2['Event ID'] = event_id
                         if add_extra_fields:
-                            attendance_dict2['time'] = event_times[event_id]
-                            attendance_dict2['full_name'] = full_name
-                            attendance_dict2['event_name'] = event_names[event_id]
-                            attendance_dict2['week_num'] = week_index + 1
+                            attendance_dict2['Time'] = event_times[event_id]
+                            attendance_dict2['Full Name'] = full_name
+                            attendance_dict2['Event Name'] = event_names[event_id]
+                            attendance_dict2['Week Num'] = week_index + 1
                         attendance_dicts2.append(attendance_dict2)
                     else:
                         print >> sys.stderr, '*** WARNING! Cannot find "' + full_name + '" in map'
@@ -259,10 +259,10 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
     return_table = petl.fromdicts(attendance_dicts2)
     header = petl.header(return_table)
     if 'event_name' in header:
-        return_table = petl.cut(return_table, 'full_name', 'event_name', 'time', 'week_num', 'date', 'event_id',
-            'individual_id')
+        return_table = petl.cut(return_table, 'Full Name', 'Event Name', 'Time', 'Week Num', 'Date', 'Event ID',
+            'Individual ID')
     else:
-        return_table = petl.cut(return_table, 'date', 'event_id', 'individual_id')
+        return_table = petl.cut(return_table, 'Date', 'Event ID', 'Individual ID')
 
     return return_table
 
