@@ -9,6 +9,7 @@ from decimal import Decimal
 # Fake class only for purpose of limiting global namespace to the 'g' object
 class g:
     set_unfound_accounts = set()
+    list_rows_to_remove = None
 
 
 def main(argv):
@@ -38,9 +39,10 @@ def main(argv):
         'Individual ID': 'SK Individual ID',
         'Amount': 'SK Amount'
         })
-    table = replace_split_transactions(table, dict_split_transaction_details)
 
-    sys.exit(1)
+    trace('REMOVING SPLIT TRANSACTIONS...', args.trace, banner=True)
+
+    table = replace_split_transactions(table, dict_split_transaction_details)
 
     table_coa = petl.fromcsv(args.chart_of_accounts_filename)
     table = petl.leftjoin(table, table_coa, lkey='Account', rkey='SK Account')
@@ -148,10 +150,17 @@ def get_account_name(list_values):
 
 
 def replace_split_transactions(table, dict_split_transaction_details):
+    global g
+
+    list_rows_to_add = []
+    list_rows_to_remove = []
     for row in petl.records(table):
         if row['Account'] == 'Split Transaction':
-            string_key = row['SK Individual ID'] + ',' + row['Batch Date']
-            contrib_amount = Decimal(re.sub(r'[^\d.]', '', row['SK Amount']))
+            sk_indiv_id = row['SK Individual ID']
+            batch_date = row['Batch Date']
+            amount_str = row['SK Amount']
+            string_key = sk_indiv_id + ',' + batch_date
+            contrib_amount = Decimal(re.sub(r'[^\d.]', '', amount_str))
             if string_key in dict_split_transaction_details:
                 splits_total = Decimal(0)
                 for split_entry in dict_split_transaction_details[string_key]:
@@ -160,10 +169,64 @@ def replace_split_transactions(table, dict_split_transaction_details):
                     print "*** ERROR!  For Individual ID, Batch Date " + string_key + ", the main 'Split " \
                         "Transaction' entry amount was " + str(contrib_amount) + "but sum of split detail " \
                         "transactions was " + str(splits_total)
+                else:
+                    list_rows_to_remove.append({
+                        'SK Individual ID': sk_indiv_id,
+                        'Batch Date': batch_date,
+                        'SK Amount': amount_str
+                        })
+                    for split_entry in dict_split_transaction_details[string_key]:
+                        list_rows_to_add.append({
+                            'Env #': row['Env #'],
+                            'Batch Date': batch_date,
+                            'SK Amount': split_entry['Amount'],
+                            'Type': row['Type'],
+                            'Account': split_entry['Account'],
+                            'Tax': split_entry['Tax'],
+                            'Check #': row['Check #'],
+                            'Notes': "Inserted from 'Split Transaction'. " + row['Notes'],
+                            'Family ID': row['Family ID'],
+                            'SK Individual ID': row['SK Individual ID'],
+                            'To Date': row['To Date'],
+                            'Contribution Link': row['Contribution Link']
+                            })
             else:
                 print "*** ERROR!  Cannot find any 'Split Transaction' details for record with 'Batch Date' " + \
                     row['Batch Date'] + ", contributed by 'Individual ID' " + row['SK Individual ID'] + " for the " \
                     "amount " + row['SK Amount']
+
+    print '*** Count before remove_rows(): ' + str(petl.nrows(table))
+    table = remove_rows(table, list_rows_to_remove)
+    print '*** Count after remove_rows(): ' + str(petl.nrows(table))
+
+    print '*** Count before add_rows(): ' + str(petl.nrows(table))
+    table = add_rows(table, list_rows_to_add)
+    print '*** Count after add_rows(): ' + str(petl.nrows(table))
+
+    return table
+
+
+def remove_rows(table, list_rows_to_remove):
+    global g
+
+    g.list_rows_to_remove = list_rows_to_remove
+    return petl.select(table, row_remover, complement=True)
+
+
+def row_remover(row):
+    global g
+
+    for row_to_remove in g.list_rows_to_remove:
+        if  row['SK Individual ID'] == row_to_remove['SK Individual ID'] and \
+            row['Batch Date'] == row_to_remove['Batch Date'] and \
+            row['SK Amount'] == row_to_remove['SK Amount']:
+            return True
+    return False
+
+
+def add_rows(table, list_rows_to_add):
+    add_table = petl.fromdicts(list_rows_to_add)
+    return petl.cat(table, add_table)
 
 
 if __name__ == "__main__":
