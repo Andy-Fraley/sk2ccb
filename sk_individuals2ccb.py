@@ -286,7 +286,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': get_date_joined,
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'Inactive Member': {
@@ -294,7 +294,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': get_date_joined,
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'Regular Attendee': {
@@ -302,7 +302,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': '',
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'Visitor': {
@@ -310,7 +310,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': '',
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'Non-Member': {
@@ -318,7 +318,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': '',
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'Pastor': {
@@ -326,7 +326,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': '',
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'Deceased - Member': {
@@ -334,7 +334,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'Yes',
             'Membership Date': get_date_joined,
             'Reason Left': 'Deceased',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': get_date_of_death
         },
         'Deceased - Non-Member': {
@@ -342,7 +342,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'Yes',
             'Membership Date': '',
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': get_date_of_death
         },
         'None': {
@@ -350,7 +350,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'Yes',
             'Membership Date': '',
             'Reason Left': '',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'No Longer Attend': {
@@ -358,7 +358,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': '',
             'Reason Left': 'No Longer Attend',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         },
         'Transferred out to other UMC': {
@@ -366,7 +366,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'Yes',
             'Membership Date': get_date_joined,
             'Reason Left': 'Transferred Out to Other UMC',
-            'Membership Start Date': get_trf_out_date,
+            'Membership Stop Date': get_trf_out_date,
             'Deceased': ''
         },
         'Transferred out to Non UMC': {
@@ -374,7 +374,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'Yes',
             'Membership Date': get_date_joined,
             'Reason Left': 'Transferred Out to Non UMC',
-            'Membership Start Date': get_trf_out_date,
+            'Membership Stop Date': get_trf_out_date,
             'Deceased': ''
         },
         'Withdrawal': {
@@ -382,7 +382,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'No',
             'Membership Date': get_date_joined,
             'Reason Left': 'Withdrawal',
-            'Membership Start Date': get_trf_out_date,
+            'Membership Stop Date': get_trf_out_date,
             'Deceased': ''
         },
         'Charge Conf. Removal': {
@@ -390,7 +390,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'Yes',
             'Membership Date': get_date_joined,
             'Reason Left': 'Charge Conference Removal',
-            'Membership Start Date': get_trf_out_date,
+            'Membership Stop Date': get_trf_out_date,
             'Deceased': ''
         },
         'Archives (Red Book)': {
@@ -398,7 +398,7 @@ def get_xref_member_fields():
             'Inactive/Remove': 'Yes',
             'Membership Date': '',
             'Reason Left': 'Archives (Red Book)',
-            'Membership Start Date': '',
+            'Membership Stop Date': '',
             'Deceased': ''
         }
     }
@@ -703,7 +703,7 @@ def convert_membership_stop_date(value, row, sk_col_name, ccb_col_name):
     'Trf out/Withdrawal Date' field is a valid date, then this date is set to Servant Keeper's
     'Trf out/Withdrawal Date', else it is set to blank ('')"""
 
-    new_value = xref_member_field_value(row, 'Membership Start Date')
+    new_value = xref_member_field_value(row, 'Membership Stop Date')
     return convert_date(new_value, row, sk_col_name, ccb_col_name)
 
 
@@ -1153,7 +1153,7 @@ def get_field_mappings():
         ['Giving #', 'Env #'],
         ['Marital Status', 'SK Marital Status'],
         ['Membership Date', 'Date Joined', convert_membership_date],
-        ['Membership Start Date', 'Trf out/Withdrawal Date', convert_membership_stop_date],
+        ['Membership Stop Date', 'Trf out/Withdrawal Date', convert_membership_stop_date],
         ['Membership Type', None, convert_membership_type],
         ['Baptized', 'SK Baptized'],
         ['School', 'School District'],
