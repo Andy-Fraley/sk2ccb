@@ -68,6 +68,7 @@ def main(argv):
         'Home Phone': 'SK Home Phone',
         'Work Phone': 'SK Work Phone',
         'Cell Phone': 'SK Cell Phone',
+        'Spiritual Gifts': 'SK Spiritual Gifts',
         'Gender': 'SK Gender',
         'Marital Status': 'SK Marital Status',
         'Baptized': 'SK Baptized',
@@ -219,7 +220,7 @@ def get_xref_w2s_skills_sgifts():
             'Teacher': ('Abilities', 'Skill: Education'),
             'Writer': ('Abilities', 'Arts: Writer')
         },
-        'Spiritual Gifts':
+        'SK Spiritual Gifts':
         {
             'Administration': ('Spiritual Gifts', 'Administration'),
             'Apostleship': ('Spiritual Gifts', 'Apostleship'),
