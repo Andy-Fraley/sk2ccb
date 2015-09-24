@@ -7,9 +7,10 @@ import tempfile
 import xml.etree.ElementTree as ET
 import os
 import argparse
+import petl
 from StringIO import StringIO
 from settings import settings
-import petl
+import urllib
 
 
 def main(argv):
@@ -48,25 +49,32 @@ def main(argv):
     group_id_map_dict = xml2group_id_dict(xml_root)
     os.remove(tmp_filename)
 
-    # print group_id_map_dict
-
-    # Given mapping dict of SK ID to CCB ID (sk2ccb_id_map_dict)
-    # Given mapping of SK ID to list of SK group names that ID is member of (sk_indiv_id2groups)
-    # Given mapping of SK group name to CCB group ID (group_id_map_dict)
-    #
-    # Now do the work and add individuals to groups in CCB
-
     for sk_indiv_id in sk_indiv_id2groups:
         if sk_indiv_id in sk2ccb_id_map_dict:
             for group_name in sk_indiv_id2groups[sk_indiv_id]:
                 if not group_name in group_id_map_dict:
                     print "*** Cannot find CCB group name '" + group_name + "' in CCB account."
-                print "Adding " + sk_indiv_id2name[sk_indiv_id] + " to group '" + group_name + "'."
+                print "Adding " + sk_indiv_id2name[sk_indiv_id] + " (Individual ID = " + \
+                    sk2ccb_id_map_dict[sk_indiv_id] + ") to group '" + group_name + "' (Group ID = " + \
+                    group_id_map_dict[group_name] + ")."
+                add_person_to_group(sk2ccb_id_map_dict[sk_indiv_id], group_id_map_dict[group_name])
         else:
             groups_trying_to_add = ', '.join(sk_indiv_id2groups[sk_indiv_id])
-            print "*** Cannot find CCB individual ID for sk_indiv_id '" + \
-                str(sk_indiv_id) + "' (" + sk_indiv_id2name[sk_indiv_id] + ") in CCB account (via custom " + \
-                "property 'SK Indiv ID'). Therefore, cannot add this person to " + groups_trying_to_add + "."
+            print "*** No SK->CCB ID map for '" + str(sk_indiv_id) + "' (" + sk_indiv_id2name[sk_indiv_id] + "), " + \
+                "so person not added to " + groups_trying_to_add + "."
+
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+
+def add_person_to_group(ccb_indiv_id, ccb_group_id):
+    http_return_code = http_post('https://ingomar.ccbchurch.com/api.php?srv=add_individual_to_group', {
+        'id': str(ccb_indiv_id),
+        'group_id': str(ccb_group_id),
+        'status': 'add'
+        }, settings.ccbapi.username, settings.ccbapi.password)
+    assert http_return_code == 200, "REST POST failure (http code " + str(http_return_code) + ") adding CCB ID " + \
+        str(ccb_indiv_id) + " to group " + str(ccb_group_id)
 
 
 def gather_semi_sep_by_indiv_id(table, dict_semi_column_fields):
@@ -144,6 +152,22 @@ def http_get2tmp_file(url, username, password):
         c.close()
         file_w.close()
     return tmp_filename
+
+
+def http_post(url, data_dict, username, password):
+    data_str = urllib.urlencode(data_dict)
+    string_store = StringIO()
+    c = pycurl.Curl()
+    c.setopt(c.URL, url + '&' + data_str)
+    c.setopt(c.USERPWD, username + ':' + password)
+    c.setopt(pycurl.POST, 1)
+    c.setopt(pycurl.POSTFIELDS, data_str)
+    c.setopt(pycurl.WRITEDATA, string_store)
+    # c.setopt(pycurl.VERBOSE, True)
+    c.perform()
+    return_code = c.getinfo(pycurl.HTTP_CODE)
+    c.close()
+    return return_code
 
 
 def trace(msg_str, trace_flag, banner=False):
