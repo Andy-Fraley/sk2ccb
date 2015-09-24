@@ -88,7 +88,7 @@ def main(argv):
     init_hitmiss_counters(g.xref_w2s_skills_sgifts)
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Willing to Serve')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Skills')
-    gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Spiritual Gifts')
+    gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'SK Spiritual Gifts')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Mailing Lists')
     gather_semicolon_sep_field(g.semicolon_sep_fields, table, 'Family Mailing Lists', primary_contact_only=True)
 
@@ -639,7 +639,7 @@ def convert_photo_release(value, row, sk_col_name, ccb_col_name):
     'Granted, But Name Release Denied')."""
 
     if value == 'Granted, but name release denied':
-        return 'Granted, But Name Release Denied'
+        return 'Granted (But Name Release Denied)'
     else:
         return value
 
