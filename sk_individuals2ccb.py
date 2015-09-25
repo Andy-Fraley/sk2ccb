@@ -18,7 +18,7 @@ class g:
     total_rows = None
     dict_family_id_counts = None
     xref_mailing_activities = None
-    blanked_sk_field_contents_notes = None
+    conversion_issue_notes = None
 
 
 def main(argv):
@@ -517,8 +517,13 @@ def date_format(date):
 
 def add_invalid_sk_field_contents_to_notes(row, value, sk_col_name):
     global g
-    append_indexed_dict_string(row['SK Individual ID'], g.blanked_sk_field_contents_notes, "Servant Keeper field '" + \
-        sk_col_name + "' had value '" + value + "' which could not be loaded into CCB.")
+    add_conversion_note(row['SK Individual ID'], "Servant Keeper field '" + sk_col_name + "' had value '" + \
+        value + "' which could not be loaded into CCB.")
+
+
+def add_conversion_note(sk_indiv_id, note_str):
+    global g
+    append_indexed_dict_string(sk_indiv_id, g.conversion_issue_notes, note_str)
 
 
 def append_indexed_dict_string(index, indexed_dict, append_str):
@@ -670,8 +675,10 @@ def convert_listed(value, row, sk_col_name, ccb_col_name):
        row['Confirmed'] != 'Yes' and row['Birthday'] == '':
         new_value = 'No'
         if row['Family Position'] == 'Other':
-            conversion_trace(row, "Not enough info to conclude person is adult...setting 'Listed'='No'.",
+            conversion_trace(row, "Not enough info to conclude person's age/confirmation, so setting 'Listed'='No'.",
                 sk_col_name, ccb_col_name)
+            add_conversion_note(row['SK Individual ID'], "Not enough info to conclude person's age/confirmation, " \
+                "so setting 'Listed'='No'.")
     else:
         new_value = 'Yes'
     return new_value
@@ -751,7 +758,9 @@ def convert_country(value, row, sk_col_name, ccb_col_name):
 
 
 def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
-    """This field has a complex mapping based on Servant Keeper 'Member Status' (and 'How Sourced?') fields as follows:
+    """If Servant Keeper's 'Active Profile' is not 'Yes', then this CCB field, 'Inactive/Remove' is set to 'Yes', so
+    the CCB record is removed.  Else, this field has a complex mapping based on Servant Keeper 'Member Status'
+    (and 'How Sourced?') fields as follows:
         'Active Member' -> blank ('', i.e. active so retain),
         'Inactive Member' -> blank ('', i.e. active so retain),
         'Regular Attendee' -> blank ('', i.e. active so retain),
@@ -771,8 +780,15 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
 
     global g
     assert row['Member Status'] in g.xref_member_fields, "In convert_inactive_remove(), 'Member Status' of '" + \
-        row['Member Status'] + "' is not valid key.  Aborting..."
-    new_value = g.xref_member_fields[row['Member Status']]['Inactive/Remove']
+        row['Member Status'] + "' (SK Individual ID " + row['SK Individual ID'] + ") is not valid key.  Aborting..."
+    if row['Active Profile'] != 'No':
+        new_value = 'Yes'  # (Remove)
+        conversion_trace(row, "'Active Profile' is 'No', so marking this as 'Inactive/Remove'='Yes' in CCB.", \
+            sk_col_name, ccb_col_name)
+        add_conversion_note(row['SK Individual ID'], "'Active Profile' is 'No', so marking this as " \
+            "'Inactive/Remove'='Yes' in CCB.")
+    else:
+        new_value = g.xref_member_fields[row['Member Status']]['Inactive/Remove']
     return new_value
 
 
@@ -804,9 +820,9 @@ def convert_notes(value, row, sk_col_name, ccb_col_name):
 
     # Note - For look-up below to work, this convert() must run after ALL convert_date() and convert_phone()
     # conversions
-    if row['SK Individual ID'] in g.blanked_sk_field_contents_notes:
+    if row['SK Individual ID'] in g.conversion_issue_notes:
         conversion_notes_str = '\n\nSERVANT KEEPER -> CCB CONVERSION ISSUES:\n\n' + \
-            g.blanked_sk_field_contents_notes[row['SK Individual ID']]
+            g.conversion_issue_notes[row['SK Individual ID']]
 
     if family_notes_str or individual_notes_str or family_relationship_notes_str or conversion_notes_str:
         output_str = 'THESE NOTES ARE FROM SERVANT KEEPER CONVERSION ({})'.format(
@@ -1032,7 +1048,7 @@ def setup_column_conversions(table):
 
     g.header_comments = {}
     g.conversion_traces = {}
-    g.blanked_sk_field_contents_notes = {}
+    g.conversion_issue_notes = {}
 
     field_ccb_name = 0
     field_sk_name = 1
