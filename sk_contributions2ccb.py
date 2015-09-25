@@ -173,7 +173,8 @@ def replace_split_transactions(table, dict_split_transaction_details):
                     list_rows_to_remove.append({
                         'SK Individual ID': sk_indiv_id,
                         'Batch Date': batch_date,
-                        'SK Amount': amount_str
+                        'SK Amount': amount_str,
+                        'Account': 'Split Transaction'
                         })
                     for split_entry in dict_split_transaction_details[string_key]:
                         list_rows_to_add.append({
@@ -186,9 +187,9 @@ def replace_split_transactions(table, dict_split_transaction_details):
                             'Check #': row['Check #'],
                             'Notes': "Inserted from 'Split Transaction'. " + row['Notes'],
                             'Family ID': row['Family ID'],
-                            'SK Individual ID': row['SK Individual ID'],
-                            'To Date': row['To Date'],
-                            'Contribution Link': row['Contribution Link']
+                            'SK Individual ID': row['SK Individual ID']
+                            # 'To Date': row['To Date'],
+                            # 'Contribution Link': row['Contribution Link']
                             })
             else:
                 print "*** ERROR!  Cannot find any 'Split Transaction' details for record with 'Batch Date' " + \
@@ -219,7 +220,8 @@ def row_remover(row):
     for row_to_remove in g.list_rows_to_remove:
         if  row['SK Individual ID'] == row_to_remove['SK Individual ID'] and \
             row['Batch Date'] == row_to_remove['Batch Date'] and \
-            row['SK Amount'] == row_to_remove['SK Amount']:
+            row['SK Amount'] == row_to_remove['SK Amount'] and \
+            row['Account'] == row_to_remove['Account']:
             return True
     return False
 
