@@ -448,7 +448,7 @@ def conversion_trace(row, msg_str, sk_col_name, ccb_col_name):
         prefix_str = "Mapping from SK column '" + sk_col_name + "' to CCB column '" + \
             ccb_col_name + "'. "
     else:
-        prefix_str = "Converting blank '" + ccb_col_name + "'. "
+        prefix_str = ''
     g.conversion_traces[indiv_id].append(prefix_str + msg_str)
 
 
@@ -666,9 +666,12 @@ def convert_listed(value, row, sk_col_name, ccb_col_name):
     assert not (row['Confirmed Date'] != '' and row['Confirmed'] == 'No'), row_info_and_msg(row,
         "Row has valid 'Confirmed Date' but indicates 'Confirmed' == 'No'.")
 
-    if (row['Family Position'] == 'Child' or row['Family Position'] == 'Other') and row['Confirmed Date'] == '' \
-       and row['Birthday'] == '':
+    if (row['Family Position'] == 'Child' or row['Family Position'] == 'Other') and row['Confirmed Date'] == '' and \
+       row['Confirmed'] != 'Yes' and row['Birthday'] == '':
         new_value = 'No'
+        if row['Family Position'] == 'Other':
+            conversion_trace(row, "Not enough info to conclude person is adult...setting 'Listed'='No'.",
+                sk_col_name, ccb_col_name)
     else:
         new_value = 'Yes'
     return new_value
