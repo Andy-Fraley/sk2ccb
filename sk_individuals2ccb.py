@@ -644,7 +644,7 @@ def convert_photo_release(value, row, sk_col_name, ccb_col_name):
     'Granted, But Name Release Denied')."""
 
     if value == 'Granted, but name release denied':
-        return 'Granted (But Name Release Denied)'
+        return 'Granted (Name Release Denied)'
     else:
         return value
 
@@ -1221,18 +1221,18 @@ def get_field_mappings():
         ["PROCESS='Baptism' QUEUE='Record Baptism Information'", None, convert_baptism_information, 'process_queue'],
 
         # Custom fields
-        ['Baptism Date', 'Baptized Date', convert_date, 'custom-pulldown'],
-        ['Baptized By', 'Baptized by', None, 'custom-pulldown'],
+        ['Baptism Date', 'Baptized Date', convert_date, 'custom-date'],
+        ['Baptized By', 'Baptized by', None, 'custom-text'],
         ['Confirmed Date', 'SK Confirmed Date', convert_date, 'custom-date'],
         ['Confirmed', 'SK Confirmed', None, 'custom-pulldown'],
         ['Mailbox Number', 'Mail Box #', None, 'custom-text'],
         ['Spirit Mailing', 'The Spirit Mailing', convert_spirit_mailing, 'custom-pulldown'],
         ['Photo Release', 'SK Photo Release', convert_photo_release, 'custom-pulldown'],
         ['Ethnicity', 'Racial/Ethnic identification', convert_ethnicity, 'custom-pulldown'],
-        ['Church Transferred From', 'SK Church Transferred From', None, 'custom-text'],
-        ['Church Transferred To', 'SK Church Transferred To', None, 'custom-text'],
-        ['Pastor When Joined', 'Pastor when joined', None, 'custom-text'],
-        ['Pastor When Leaving', 'Pastor when leaving', None, 'custom-text'],
+        ['Transferred Frm', 'SK Church Transferred From', None, 'custom-text'],
+        ['Transferred To', 'SK Church Transferred To', None, 'custom-text'],
+        ['Pastr When Join', 'Pastor when joined', None, 'custom-text'],
+        ['Pastr When Leav', 'Pastor when leaving', None, 'custom-text'],
         ['SK Indiv ID', 'SK Individual ID', None, 'custom-text'],
 
         # Putting these fields towards the end so that dependent 'birthday' and 'confirmed' fields can be stuffed
