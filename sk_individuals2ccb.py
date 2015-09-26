@@ -781,14 +781,13 @@ def convert_inactive_remove(value, row, sk_col_name, ccb_col_name):
     global g
     assert row['Member Status'] in g.xref_member_fields, "In convert_inactive_remove(), 'Member Status' of '" + \
         row['Member Status'] + "' (SK Individual ID " + row['SK Individual ID'] + ") is not valid key.  Aborting..."
-    if row['Active Profile'] != 'No':
+    new_value = g.xref_member_fields[row['Member Status']]['Inactive/Remove']
+    if new_value == 'No' and row['Active Profile'] == 'No':
         new_value = 'Yes'  # (Remove)
-        conversion_trace(row, "'Active Profile' is 'No', so marking this as 'Inactive/Remove'='Yes' in CCB.", \
-            sk_col_name, ccb_col_name)
-        add_conversion_note(row['SK Individual ID'], "'Active Profile' is 'No', so marking this as " \
-            "'Inactive/Remove'='Yes' in CCB.")
-    else:
-        new_value = g.xref_member_fields[row['Member Status']]['Inactive/Remove']
+        conversion_trace(row, "SK 'Active Profile' is 'No', so marking this as 'Inactive/Remove'='Yes' in CCB even " \
+            "though it'd be 'No' based solely on mapping of SK 'Member Status'", sk_col_name, ccb_col_name)
+        add_conversion_note(row['SK Individual ID'], "SK 'Active Profile' is 'No', so marking this as " \
+            "'Inactive/Remove'='Yes' in CCB even though it'd be 'No' based solely on mapping of SK 'Member Status'")
     return new_value
 
 
