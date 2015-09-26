@@ -67,12 +67,12 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
     attendance_dicts = []
 
     # CCB's Worship Service event IDs...
-    # TODO!  Plug these with actuals out of CCB once worship service events created
     event_ids = {}
     event_ids['8'] = 6
     event_ids['9'] = 7
     event_ids['10'] = 8
     event_ids['11:15'] = 9
+    event_ids['Christmas'] = 13
 
     # The following are used to create CSV output filenames and to emit human-readable event name if add_extra_fields
     # flag is on
@@ -81,6 +81,7 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
     event_names[7] = '09am'
     event_names[8] = '10am'
     event_names[9] = '11_15am'
+    event_names[13] = 'Christmas Eve'
 
     # Time of event in Excel-parseable format
     event_times = {}
@@ -88,6 +89,7 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
     event_times[7] = '09:00 AM'
     event_times[8] = '10:00 AM'
     event_times[9] = '11:15 AM'
+    event_times[13] = '04:00 PM'
 
     # Starting state...
     prior_line = None
@@ -140,14 +142,16 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
                     day_countup += 7
                 while len(month_sundays) < 6:
                     month_sundays.append(None)
+                christmas_eve_date = datetime.date(year, month, 24)
 
         # Second pick off line at front of file indicating worship service time that this attendance file is for...
         elif not matched_service_time:
-            matched_service_time = re.search('Worship Service - (Sunday |Summer )([^ ]*)', line)
+            matched_service_time = re.search('Worship Service - (Sunday |Summer )?([^ ]*)', line)
             if matched_service_time:
                 service_time = matched_service_time.group(2)
                 if service_time in event_ids:
                     event_id = event_ids[service_time]
+                    event_name = event_names[event_id]
                 else:
                     print >> sys.stderr, '*** Filename: ' + filename + ', line number: ' + str(line_number)
                     print >> sys.stderr, '*** ERROR! Unrecognized service_time: "' + service_time + '"'
@@ -225,12 +229,15 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
                     full_name = attendance_dict['full_name']
                     if full_name in full_name2sk_indiv_id:
                         attendance_dict2['Individual ID'] = full_name2sk_indiv_id[full_name]
-                        attendance_dict2['Date'] = month_sundays[week_index]
+                        if event_name == 'Christmas Eve':
+                            attendance_dict2['Date'] = christmas_eve_date
+                        else:
+                            attendance_dict2['Date'] = month_sundays[week_index]
                         attendance_dict2['Event ID'] = event_id
                         if add_extra_fields:
                             attendance_dict2['Time'] = event_times[event_id]
                             attendance_dict2['Full Name'] = full_name
-                            attendance_dict2['Event Name'] = event_names[event_id]
+                            attendance_dict2['Event Name'] = event_name
                             attendance_dict2['Week Num'] = week_index + 1
                         attendance_dicts2.append(attendance_dict2)
                     else:
@@ -258,7 +265,7 @@ def attendance_file2table(filename, output_csv_filebase, add_extra_fields):
 
     return_table = petl.fromdicts(attendance_dicts2)
     header = petl.header(return_table)
-    if 'event_name' in header:
+    if 'Event Name' in header:
         return_table = petl.cut(return_table, 'Full Name', 'Event Name', 'Time', 'Week Num', 'Date', 'Event ID',
             'Individual ID')
     else:
