@@ -35,7 +35,8 @@ def main(argv):
     ]
 
     validation_table = petl.validate(table, constraints=constraints)
-    validation_table.tocsv(args.output_validation_csv_filename)
+    validation_table.progress(200).tocsv(args.output_validation_csv_filename)
+    print "See output file '" + args.output_validation_csv_filename + "' for results"
 
     # Flush to ensure all output is written
     sys.stdout.flush()
@@ -47,11 +48,6 @@ def max_len(num):
 
 
 def max_len_checker(x, num):
-    if not len(x) <= num:
-        prefix = '***'
-    else:
-        prefix = ''
-    print prefix + " max_len_checker('" + str(x) + "', " + str(num) + ')=' + str(len(x) <= num)
     return len(x) <= num
 
 
@@ -63,7 +59,6 @@ def max_len_semisep_checker(x, num):
     max_len = 0
     for field in x.split(';'):
         field = field.strip()
-        print "max_len_semisep_checker('" + str(field) + "', " + str(num) + ')=' + str(len(field) <= num)
         if max_len < len(field):
             max_len = len(field)
     return max_len <= num
