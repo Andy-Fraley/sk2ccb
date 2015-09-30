@@ -186,7 +186,7 @@ def replace_split_transactions(table, dict_split_transaction_details):
                             'Tax': split_entry['Tax'],
                             'Check #': row['Check #'],
                             'Notes': "Inserted from 'Split Transaction'. " + row['Notes'],
-                            'Family ID': row['Family ID'],
+                            # 'Family ID': row['Family ID'],
                             'SK Individual ID': row['SK Individual ID']
                             # 'To Date': row['To Date'],
                             # 'Contribution Link': row['Contribution Link']
