@@ -13,6 +13,18 @@ def main(argv):
                 'individual_id': ('.', 'id'),
                 'first_name':'first_name',
                 'last_name':'last_name',
+                'Baptism Date': ".//user_defined_date_fields/user_defined_date_field[label='Baptism Date']/date",
+                'Baptized By': ".//user_defined_text_fields/user_defined_text_field[label='Baptized By']/text",
+                'Confirmed Date': ".//user_defined_date_fields/user_defined_date_field[label='Confirmed Date']/date",
+                'Confirmed': ".//user_defined_pulldown_fields/user_defined_pulldown_field[label='Confirmed']/selection",
+                'Mailbox Number': ".//user_defined_text_fields/user_defined_text_field[label='Mailbox Number']/text",
+                'Spirit Mailing': ".//user_defined_pulldown_fields/user_defined_pulldown_field[label='Spirit Mailing']/selection",
+                'Photo Release': ".//user_defined_pulldown_fields/user_defined_pulldown_field[label='Photo Release']/selection",
+                'Ethnicity': ".//user_defined_pulldown_fields/user_defined_pulldown_field[label='Ethnicity']/selection",
+                'Transferred Frm': ".//user_defined_text_fields/user_defined_text_field[label='Transferred Frm']/text",
+                'Transferred To': ".//user_defined_text_fields/user_defined_text_field[label='Transferred To']/text",
+                'Pastr When Join': ".//user_defined_text_fields/user_defined_text_field[label='Pastr When Join']/text",
+                'Pastr When Leav': ".//user_defined_text_fields/user_defined_text_field[label='Pastr When Leav']/text",
                 'SK Indiv ID': ".//user_defined_text_fields/user_defined_text_field[label='SK Indiv ID']/text"
             }
         },
