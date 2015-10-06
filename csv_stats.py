@@ -7,8 +7,10 @@ def main(argv):
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--input-csv-filename", required=True, help="Input UTF8 CSV to summarize")
-    parser.add_argument("--semi-sep-columns", required=False, nargs = '*', default=argparse.SUPPRESS,
-        help="Column names of columns containing semi-colon separated values")
+    parser.add_argument("--sep-columns", required=False, nargs = '*', default=argparse.SUPPRESS,
+        help="Column names of columns containing comma- or semi-colon-separated values")
+    parser.add_argument("--sep-character", required=False, help="Character used to separate values in multi-value " \
+        "fields.  Defaults to ';' if not specified.")
     parser.add_argument("--skip-columns", required=False, nargs='*', default=argparse.SUPPRESS,
         help="Column names to NOT generate stats for")
     parser.add_argument("--skip-num-rows", required=False, type=int, help="Skip specified number "
@@ -40,15 +42,22 @@ def main(argv):
 
     # Print nicely formatted stats for each column
     sep = ''
+    args_dict = vars(args)
+    skip_columns_specified = 'skip_columns' in args_dict
+    sep_char_specified = 'sep_character' in args_dict
     for column in petl.header(table):
         if args.first_ccb_column is not None and column == args.first_ccb_column:
             column_prefix = 'CCB '
-        if args.skip_columns is None or not column in args.skip_columns:
+        if not skip_columns_specified or column not in args.skip_columns:
             output_str = column_prefix + "Column '" + column + "'"
             print sep + output_str
             print >> sys.stderr, output_str
-            if args.semi_sep_columns is not None and column in args.semi_sep_columns:
-                output_str = num_dict2str(dict_dump(semi_sep_valuecounter(table, column)))
+            if args.sep_columns is not None and column in args.sep_columns:
+                if sep_char_specified:
+                    sep_character = args.sep_character
+                else:
+                    sep_character = ';'
+                output_str = num_dict2str(dict_dump(sep_valuecounter(table, column, sep_character)))
                 print output_str
             else:
                 output_str = num_dict2str(dict_dump(valuecounts(table, column)))
@@ -60,18 +69,18 @@ def main(argv):
     sys.stderr.flush()
 
 
-def semi_sep_valuecounter(table, col_name):
-    dict_semi_sep = {}
+def sep_valuecounter(table, col_name, sep_char=';'):
+    dict_sep = {}
     for value in petl.values(table, col_name):
         if value.strip() == '':
             continue
         else:
-            for semi_sep in value.split(';'):
-                semi_sep_str = semi_sep.strip()
-                if semi_sep_str not in dict_semi_sep:
-                    dict_semi_sep[semi_sep_str] = 0
-                dict_semi_sep[semi_sep_str] += 1
-    return dict_semi_sep
+            for sep in value.split(sep_char):
+                sep_str = sep.strip()
+                if sep_str not in dict_sep:
+                    dict_sep[sep_str] = 0
+                dict_sep[sep_str] += 1
+    return dict_sep
 
 
 def valuecounts(table, col_name):
