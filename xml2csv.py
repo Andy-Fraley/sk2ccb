@@ -10,9 +10,61 @@ def main(argv):
         'INDIVIDUALS': {
             'xmlroot': 'response/individuals/individual',
             'parse_dict': {
-                'individual_id': ('.', 'id'),
-                'first_name':'first_name',
-                'last_name':'last_name',
+                'Family ID': ('family', 'id'),
+                'Individual ID': ('.', 'id'),
+                'Family Position': 'family_position',
+                'Prefix': 'salutation',
+                'First Name': 'first_name',
+                'Middle Name': 'middle_name',
+                'Last Name': 'last_name',
+                'Legal Name': 'legal_first_name',
+                'Legal Name': 'legal_first_name',
+                'Active': 'active',
+                'Campus': 'campus',
+                'Email': 'email',
+
+                'Mailing Street': ".//address[@type='mailing']/street_address",
+                'Mailing City': ".//address[@type='mailing']/city",
+                'Mailing State': ".//address[@type='mailing']/state",
+                'Mailing Postal Code': ".//address[@type='mailing']/zip",
+                'Mailing Country': ".//address[@type='mailing']/country",
+
+                'Home Street': ".//address[@type='home']/street_address",
+                'Home City': ".//address[@type='home']/city",
+                'Home State': ".//address[@type='home']/state",
+                'Home Postal Code': ".//address[@type='home']/zip",
+                'Home Country': ".//address[@type='home']/country",
+
+                'Other Street': ".//address[@type='other']/street_address",
+                'Other City': ".//address[@type='other']/city",
+                'Other State': ".//address[@type='other']/state",
+                'Other Postal Code': ".//address[@type='other']/zip",
+                'Other Country': ".//address[@type='other']/country",
+
+                'Contact Phone': ".//phone[@type='contact']",
+                'Home Phone': ".//phone[@type='home']",
+                'Work Phone': ".//phone[@type='work']",
+                'Mobile Phone': ".//phone[@type='mobile']",
+                'Emergency Phone': ".//phone[@type='emergency']",
+
+                'Birthday': 'birthday',
+                'Anniversary': 'anniversary',
+                'Gender': 'gender',
+                'Giving Number': 'giving_number',
+                'Marital Status': 'marital_status',
+                'Membership Start Date': 'membership_date',
+                'Membership End Date': 'membership_end',
+                'Membership Type': 'membership_type',
+                'Baptized': 'baptized',
+                # 'School District': ??,
+                # 'How They Heard': ??,
+                # 'How They Joined': ??,
+                # 'Reason Left Church': ??,
+                # 'Job Title': ??,
+                'Deceased': 'deceased',
+
+                # !!!
+
                 'Baptism Date': ".//user_defined_date_fields/user_defined_date_field[label='Baptism Date']/date",
                 'Baptized By': ".//user_defined_text_fields/user_defined_text_field[label='Baptized By']/text",
                 'Confirmed Date': ".//user_defined_date_fields/user_defined_date_field[label='Confirmed Date']/date",
@@ -30,7 +82,19 @@ def main(argv):
         },
         'GROUPS': 'https://ingomar.ccbchurch.com/api.php?srv=group_profiles',
         'ACCOUNTS': 'https://ingomar.ccbchurch.com/api.php?srv=transaction_detail_type_list',
-        'TRANSACTIONS': 'https://ingomar.ccbchurch.com/api.php?srv=batch_profiles'
+        'TRANSACTIONS': {
+            'xmlroot': 'response/batches/batch/transactions/transaction',
+            'parse_dict': {
+                'Date': 'date',
+                'Payment Type': 'payment_type',
+                'Check Number': 'check_number',
+                'Individual ID': ('individual', 'id'),
+                'Account': './/transaction_details/transaction_detail/coa',
+                'Amount': './/transaction_details/transaction_detail/amount',
+                'Tax Deductible': './/transaction_details/transaction_detail/tax_deductible',
+                'Note': './/transaction_details/transaction_detail/note'
+            }
+        }
     }
 
     parser = argparse.ArgumentParser(description="Parses XML file into CSV output")
