@@ -45,6 +45,8 @@ def main(argv):
             sys.exit(1)
         else:
             full_path = os.path.abspath(args.output_directory)
+    else:
+        full_path = '.'
 
     timestamp_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
