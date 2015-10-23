@@ -25,7 +25,8 @@ def main(argv):
         'INDIVIDUALS': 'https://ingomar.ccbchurch.com/api.php?srv=individual_profiles',
         'GROUPS': 'https://ingomar.ccbchurch.com/api.php?srv=group_profiles',
         'ACCOUNTS': 'https://ingomar.ccbchurch.com/api.php?srv=transaction_detail_type_list',
-        'TRANSACTIONS': 'https://ingomar.ccbchurch.com/api.php?srv=batch_profiles'
+        'TRANSACTIONS': 'https://ingomar.ccbchurch.com/api.php?srv=batch_profiles',
+        'EVENTS': 'https://ingomar.ccbchurch.com/api.php?srv=event_profiles'
     }
 
     parser = argparse.ArgumentParser(description="Creates time-stamped file per object type with contents of CCB " \
